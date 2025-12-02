@@ -1,0 +1,92 @@
+# ===================================================================
+# General
+# ===================================================================
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ===================================================================
+# Rust
+# ===================================================================
+# This section is based on the standard Rust gitignore.
+
+# Compiled artifacts and build outputs.
+target/
+
+# Rustfmt backup files (matches at any level)
+**/*.rs.bk
+
+# ===================================================================
+# Node.js
+# ===================================================================
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Environment variables
+# It's a best practice to never commit environment variables.
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Build outputs and caches (matches at any level)
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# TypeScript cache file
+*.tsbuildinfo
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn 2+ files
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
