@@ -1,18 +1,33 @@
 {
-    "name": "Sentorii-dev",
-    "image": "mcr.microsoft.com/devcontainers/rust:1-bullseye",
-    "features": {
-        "ghcr.io/devcontainers/features/node:1": {},
-		"ghcr.io/guiyomh/features/just:0": {}
-    },
-    "postCreateCommand": "rustup component add rustfmt clippy && cargo install bacon --locked && cargo install cargo-nextest --locked",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "rust-lang.rust-analyzer",
+	"name": "Sentorii-dev",
+	"image": "mcr.microsoft.com/devcontainers/rust:1-bullseye",
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
+		},
+		"ghcr.io/guiyomh/features/just:0": {
+			"version": "latest"
+		}
+	},
+
+	// This command runs ONLY ONCE when the container is first created.
+	// We install all our tools here. The results are stored in the persistent volumes below.
+	"onCreateCommand": "rustup component add rustfmt clippy && cargo install bacon cargo-nextest --locked",
+
+	// Use named volumes to persist the Rust toolchain and Cargo cache between sessions.
+	// This is the key to achieving instant startups after the first build.
+	"mounts": [
+		"source=rust-project-cargo,target=/home/vscode/.cargo,type=volume",
+		"source=rust-project-rustup,target=/home/vscode/.rustup,type=volume"
+	],
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
 				"serayuzgur.crates",
 				"tamasfe.even-better-toml"
-            ]
-        }
-    }
+			]
+		}
+	}
 }
