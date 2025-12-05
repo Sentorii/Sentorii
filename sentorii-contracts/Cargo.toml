@@ -6,6 +6,7 @@ description = "The single source of truth for all shared data types and traits f
 license = "MIT"
 
 [dependencies]
+serde = { version = "*", features = ["derive"] }
 
 [lints]
 workspace = true
