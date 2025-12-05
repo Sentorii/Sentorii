@@ -1,7 +1,10 @@
 # Contributing to Sentorii 🦊
 
 ## Setting Up Your Development Environment
-Sentorii makes use of devcontainer to set up the required toolchain.
+1. Set up your rust toolchain.
+2. Install just with `cargo install just`
+3. Install cargo-nextest `cargo install cargo-nextest --locked`
+4. Optionally bacon `cargo install bacon --locked`
 
 ## Development Workflow
 
