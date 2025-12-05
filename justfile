@@ -21,12 +21,12 @@ fmt:
 # Lint all code in the workspace with Clippy.
 lint:
     @echo "🧐 Linting code with Clippy..."
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Run all tests, including fast unit tests and slow integration tests.
 test-all:
     @echo "🧪 Running the complete test suite (unit + integration)..."
-    cargo nextest run --workspace --features test-integration
+    cargo nextest run --workspace --all-features
 
 # Run only the fast unit tests.
 test-fast:

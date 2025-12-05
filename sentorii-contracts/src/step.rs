@@ -1,3 +1,5 @@
+//! Defines different versions of steps.
+
 use crate::command::SentoriiCommand;
 use serde::{Deserialize, Serialize};
 
