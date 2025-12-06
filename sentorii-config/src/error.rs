@@ -10,7 +10,7 @@ pub enum ConfigError {
     /// This can include file I/O errors, TOML parsing errors (including those
     /// from `deny_unknown_fields`), and more.
     #[error("Configuration loading failed: {0}")]
-    LoadError(#[from] figment::Error),
+    LoadError(#[from] Box<figment::Error>),
 
     /// Occurs when the user's home or config directory cannot be determined.
     ///
