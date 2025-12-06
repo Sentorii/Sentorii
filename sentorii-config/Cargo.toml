@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 thiserror = "2.0.17"
 figment = "0.10.19"
+serde = { version = "1.0.228", features = ["derive"] }
 
 [lints]
 workspace = true
