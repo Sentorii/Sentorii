@@ -1,9 +1,9 @@
 //! Defines the complete, structured language for the backend to communicate its state.
 
-use serde::{Deserialize, Serialize};
 use crate::step::{CommandStep, Step};
+use serde::{Deserialize, Serialize};
 
-/// THe execution status of a single workflow step.
+/// The execution status of a single workflow step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", content = "message")]
 pub enum StepStatus {
@@ -40,7 +40,7 @@ pub struct FailureInfo {
 pub struct StringInputRequest {
     pub key: String,
     pub prompt: String,
-    pub tx: oneshot::Sender<String>
+    pub tx: oneshot::Sender<String>,
 }
 
 /// A request from the egnine to the UI for a selection from a list.
@@ -50,7 +50,7 @@ pub struct SelectInputRequest {
     pub key: String,
     pub prompt: String,
     pub options: Vec<String>,
-    pub tx: oneshot::Sender<String>
+    pub tx: oneshot::Sender<String>,
 }
 
 /// Represents a single Git commit with its essential information.
