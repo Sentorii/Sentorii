@@ -1,7 +1,7 @@
 //! Defines the Rust structs that map directly to the `sentorii.toml` file format.
 
-use std::path::PathBuf;
 use serde::{Deserialize, Deserializer};
+use std::path::PathBuf;
 
 /// The final, merged configuration struct that the rest of the application will use.
 ///
