@@ -63,11 +63,9 @@ impl<'de> Deserialize<'de> for VersioningConfig {
         D: Deserializer<'de>,
     {
         match VersioningConfigHelper::deserialize(deserializer)? {
-            VersioningConfigHelper::Multi(m) => Ok(VersioningConfig::Multi(m)),
-            VersioningConfigHelper::Str(s) if s.to_lowercase() == "auto" => {
-                Ok(VersioningConfig::Auto)
-            }
-            VersioningConfigHelper::Str(s) => Ok(VersioningConfig::Single(s)),
+            VersioningConfigHelper::Multi(m) => Ok(Self::Multi(m)),
+            VersioningConfigHelper::Str(s) if s.to_lowercase() == "auto" => Ok(Self::Auto),
+            VersioningConfigHelper::Str(s) => Ok(Self::Single(s)),
         }
     }
 }
