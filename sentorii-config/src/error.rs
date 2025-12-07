@@ -1,20 +1,13 @@
-//! Defines the crate's custom error type `ConfigError`.
+//! Defines the crate's custom error type, `ConfigError`.
 
+use std::io;
 use thiserror::Error;
 
-/// The primary error type for the `sentorii-config` crate.
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    /// Wraps errors originating from the `figment` configuration library.
-    ///
-    /// This can include file I/O errors, TOML parsing errors (including those
-    /// from `deny_unknown_fields`), and more.
-    #[error("Configuration loading failed: {0}")]
-    LoadError(#[from] Box<figment::Error>),
+    #[error("File I/O error: {0}")]
+    Io(#[from] io::Error),
 
-    /// Occurs when the user's home or config directory cannot be determined.
-    ///
-    /// This is necessary for locating the global configuration file.
-    #[error("Could not determine user's home or config directory")]
-    HomeDirNotFound,
+    #[error("TOML parsing error: {0}")]
+    TomlParse(#[from] toml::de::Error),
 }
