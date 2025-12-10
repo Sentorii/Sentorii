@@ -1,185 +1,206 @@
-//! Contains the logic for finding, loading, and merging configuration files.
+//! Contains the orchestration logic for loading configuration from all sources.
 
-use crate::error::ConfigError;
-use crate::schemas::{Config, TomlConfig};
-use serde_json::Value::Object;
-use serde_json::{Map, Value};
-use std::env;
-use std::fs::read_to_string;
-use std::io::ErrorKind;
-use std::path::PathBuf;
+use crate::env::{EnvironmentProvider, ProcessEnvironmentProvider, build_value_from_env};
+use crate::merger::Merge;
+use crate::parser::{SystemValueProvider, ValueProvider};
+use crate::paths::{
+    GlobalPathProvider, ProjectPathProvider, SystemGlobalPathProvider, SystemProjectPathProvider,
+};
+use crate::{Config, ConfigError};
+use toml::Value;
 
-/// Loads, merges, and validates configuration from all sources.
+/// The primary, zero-maintenance configuration loader.
+///
+/// This function is the "composition root" where we instantiate the
+/// concrete providers for the real environment and filesystem. It orchestrates
+/// the entire configuration loading and merging process, which proceeds in the
+/// following order of precedence (where later sources override earlier ones):
+///
+/// 1.  **Built-in Defaults:** The `Config::default()` values.
+/// 2.  **Global File:** A global `config.toml` (e.g., at `~/.config/sentorii/config.toml`).
+/// 3.  **Project File:** A project-specific `.sentorii/config.toml` at the Git repository root.
+/// 4.  **Environment Variables:** Variables prefixed with `SENTORII_`.
+///
 /// # Errors
 ///
-/// This function will return an error if:
-/// - A configuration file is found but cannot be read due to I/O issues (e.g., permissions).
-/// - A configuration file contains syntactically invalid TOML.
+/// This function will return an error under the following conditions, bubbling
+/// up the most relevant issue encountered during the loading process:
+///
+/// *   Returns [`ConfigError::IoError`] if there is a problem reading a configuration
+///     file (e.g., due to file permissions) or if the `git` command fails to
+///     execute (e.g., it is not in the system's `PATH`).
+///
+/// *   Returns [`ConfigError::TomlParseError`] if a configuration file
+///     (`config.toml`) contains invalid TOML syntax. The
+///     error will include the path to the malformed file.
+///
+/// *   Returns [`ConfigError::EnvVarTomlParse`] if an environment variable's
+///     value is not a valid TOML fragment (e.g., a complex array string is
+///     malformed).
+///
+/// *   Returns [`ConfigError::Deserialization`] if the final, merged configuration
+///     does not match the shape of the `Config` struct. This is most commonly
+///     caused by a type mismatch (e.g., `SENTORII_BRANCHING="a-string"`) or a
+///     typo in a key name in any configuration source (due to `#[serde(deny_unknown_fields)]`).
+///
+/// *   Returns [`ConfigError::Serialization`] in the unlikely event that the
+///     default `Config` struct cannot be serialized into a TOML value. This
+///     is an internal error and should not typically occur.
+///
 pub fn load_config() -> Result<Config, ConfigError> {
-    let global_content = find_global_config_path()
-        .map(read_to_string)
-        .transpose()
-        .map_err(|e| {
-            if e.kind() == ErrorKind::NotFound {
-                ConfigError::Io(std::io::Error::other(e))
-            } else {
-                e.into()
-            }
-        });
-
-    let global_content = match global_content {
-        Ok(content) => content,
-        Err(e) => {
-            if e.to_string().contains("ignore") {
-                None
-            } else {
-                return Err(e);
-            }
-        }
-    };
-
-    let project_content = find_git_root()
-        .ok()
-        .flatten()
-        .map(|root| {
-            let path = root.join(".sentorii").join("config.toml");
-            read_to_string(path)
-        })
-        .transpose()
-        .map_err(|e| {
-            if e.kind() == ErrorKind::NotFound {
-                ConfigError::Io(std::io::Error::other(e))
-            } else {
-                e.into()
-            }
-        });
-
-    let project_content = match project_content {
-        Ok(content) => content,
-        Err(e) => {
-            if e.to_string().contains("ignore") {
-                None
-            } else {
-                return Err(e);
-            }
-        }
-    };
-
-    build_config(global_content, project_content, env::vars())
+    let global_paths = SystemGlobalPathProvider::new(dirs::home_dir());
+    let project_paths = SystemProjectPathProvider;
+    let env = ProcessEnvironmentProvider;
+    let value_provider = SystemValueProvider;
+    load_config_from(&global_paths, &project_paths, &env, &value_provider)
 }
 
-fn build_config(
-    global_toml: Option<String>,
-    project_toml: Option<String>,
-    env_vars: impl IntoIterator<Item = (String, String)>,
-) -> Result<Config, ConfigError> {
-    let mut config = Config::default();
+/// Internal loader function generic over all provider traits.
+pub(crate) fn load_config_from<G, P, E, V>(
+    global_paths: &G,
+    project_paths: &P,
+    env: &E,
+    value_provider: &V,
+) -> Result<Config, ConfigError>
+where
+    G: GlobalPathProvider,
+    P: ProjectPathProvider,
+    E: EnvironmentProvider,
+    V: ValueProvider,
+{
+    let mut merged_config = Value::try_from(Config::default())?;
 
-    if let Some(toml_str) = global_toml {
-        let loaded: TomlConfig = toml::from_str(&toml_str)?;
-        config.overlay(loaded);
+    let global_path = global_paths.global_config_path();
+    if let Some(global_value) = value_provider.load_from(global_path)? {
+        merged_config.merge(global_value);
     }
 
-    if let Some(toml_str) = project_toml {
-        let loaded: TomlConfig = toml::from_str(&toml_str)?;
-        config.overlay(loaded);
+    let project_path = project_paths.project_config_path()?;
+    if let Some(project_value) = value_provider.load_from(project_path)? {
+        merged_config.merge(project_value);
     }
 
-    if let Some(loaded) = parse_toml_from_key_values(env_vars) {
-        config.overlay(loaded);
-    }
+    let env_value = build_value_from_env(env)?;
+    merged_config.merge(env_value);
 
-    Ok(config)
-}
-
-fn parse_toml_from_key_values(
-    env_vars: impl IntoIterator<Item = (String, String)>,
-) -> Option<TomlConfig> {
-    const PREFIX: &str = "SENTORII_";
-    let mut root_map = Map::new();
-    for (key, value) in env_vars.into_iter().filter(|(k, _)| k.starts_with(PREFIX)) {
-        let path = key.trim_start_matches(PREFIX).to_lowercase();
-        insert_value_by_path(&mut root_map, &path, Value::String(value));
-    }
-    if root_map.is_empty() {
-        None
-    } else {
-        serde_json::from_value(Object(root_map)).ok()
-    }
-}
-
-fn insert_value_by_path(root_map: &mut Map<String, Value>, path: &str, value: Value) {
-    let parts: Vec<_> = path.split('_').collect();
-
-    if let Some((final_key, path_segments)) = parts.split_last() {
-        let mut current_map = root_map;
-
-        for segment in path_segments {
-            let entry = current_map
-                .entry((*segment).to_string())
-                .or_insert_with(|| Object(Map::new()));
-
-            if let Object(next_map) = entry {
-                current_map = next_map;
-            } else {
-                return;
-            }
-        }
-        current_map.insert((*final_key).to_string(), value);
-    }
-}
-
-fn find_global_config_path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("com", "sentorii", "Sentorii")
-        .map(|dirs| dirs.config_dir().to_path_buf())
-}
-
-fn find_git_root() -> std::io::Result<Option<PathBuf>> {
-    let start_dir = env::current_dir()?;
-    let mut current_dir = start_dir.as_path();
-
-    loop {
-        if current_dir.join(".git").is_dir() {
-            return Ok(Some(current_dir.to_path_buf()));
-        }
-
-        match current_dir.parent() {
-            Some(parent) => current_dir = parent,
-            None => return Ok(None),
-        }
-    }
+    Ok(merged_config.try_into()?)
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::env::MockEnvironmentProvider;
+    use crate::parser::{MockError, MockValueProvider};
+    use crate::paths::{MockGlobalPathProvider, MockProjectPathProvider};
+    use crate::schemas::{Branching, Plugins, Prefixes};
+    use std::path::PathBuf;
+    use toml::toml;
 
     #[test]
-    fn test_pure_environment_variable_parsing() {
-        let mock_env_vars = vec![
-            ("IRRELEVANT_VAR".to_string(), "foo".to_string()),
-            ("SENTORII_GITFLOW_MAIN".to_string(), "env_main".to_string()),
-            (
-                "SENTORII_GITFLOW_PREFIXES_FEATURE".to_string(),
-                "feat/".to_string(),
-            ),
-        ];
+    fn logic_test_full_hierarchy_merge() {
+        let global_path = PathBuf::from("/fake/home/.config/sentorii/sentorii.toml");
+        let project_path = PathBuf::from("/fake/repo/sentorii.toml");
 
-        let config_from_env_vars = parse_toml_from_key_values(mock_env_vars);
+        let global_value = toml! {
+            [branching]
+            main = "global-main"
+        };
+        let project_value = toml! {
+            [branching]
+            develop = "project-dev"
+        };
 
-        let loaded_config = config_from_env_vars
-            .map_or_else(|| panic!("config_from_env_vars is empty"), |config| config);
-        let gitflow = loaded_config.gitflow.map_or_else(
-            || panic!("parse_toml_from_key_values failed"),
-            |gitflow| gitflow,
+        let mock_global_paths = MockGlobalPathProvider {
+            path: Some(global_path.clone()),
+        };
+        let mock_project_paths = MockProjectPathProvider {
+            path: Ok(Some(project_path.clone())),
+        };
+
+        let mut mock_value_provider = MockValueProvider::new();
+        mock_value_provider.add_value(global_path, Value::from(global_value));
+        mock_value_provider.add_value(project_path, Value::from(project_value));
+
+        let mut mock_env = MockEnvironmentProvider::new();
+        mock_env.add_string("SENTORII_BRANCHING_MAIN", "env-main");
+        mock_env.add_string("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
+
+        let config = load_config_from(
+            &mock_global_paths,
+            &mock_project_paths,
+            &mock_env,
+            &mock_value_provider,
+        )
+        .unwrap();
+
+        let expected = Config {
+            plugins: Plugins::default(),
+            branching: Branching {
+                main: "env-main".to_string(),
+                develop: "project-dev".to_string(),
+                prefixes: Prefixes {
+                    feature: "feature/".to_string(),
+                    release: "release/".to_string(),
+                    hotfix: "urgent/".to_string(),
+                },
+            },
+        };
+        assert_eq!(config, expected);
+    }
+
+    #[test]
+    fn logic_test_error_on_type_mismatch() {
+        let mock_global_paths = MockGlobalPathProvider { path: None };
+        let mock_project_paths = MockProjectPathProvider { path: Ok(None) };
+        let mut mock_env = MockEnvironmentProvider::new();
+        let mock_value_provider = MockValueProvider::new();
+        mock_env.add_string("SENTORII_BRANCHING", "a-string");
+
+        let result = load_config_from(
+            &mock_global_paths,
+            &mock_project_paths,
+            &mock_env,
+            &mock_value_provider,
         );
-        let prefixes = gitflow.prefixes.map_or_else(
-            || panic!("parse_toml_from_key_values failed"),
-            |prefixes| prefixes,
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::Deserialization(e) => {
+                assert!(e.to_string().contains("invalid type: string"));
+            }
+            other => panic!("Expected Deserialization error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unit_test_propagates_error_from_value_provider() {
+        let global_path = PathBuf::from("/global.toml");
+        let mock_global_paths = MockGlobalPathProvider {
+            path: Some(global_path.clone()),
+        };
+        let mock_project_paths = MockProjectPathProvider { path: Ok(None) };
+        let mock_env = MockEnvironmentProvider::new();
+        let mut mock_value_provider = MockValueProvider::new();
+
+        mock_value_provider.add_error(global_path.clone(), MockError::TomlParse);
+
+        let result = load_config_from(
+            &mock_global_paths,
+            &mock_project_paths,
+            &mock_env,
+            &mock_value_provider,
         );
 
-        assert_eq!(gitflow.main, Some("env_main".to_string()));
-        assert_eq!(prefixes.feature, Some("feat/".to_string()));
-        assert!(gitflow.develop.is_none());
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::TomlParseError { path, .. } => {
+                assert_eq!(path, global_path);
+            }
+            other_error => {
+                panic!("Expected a TomlParseError, but got {other_error:?}");
+            }
+        }
     }
 }
