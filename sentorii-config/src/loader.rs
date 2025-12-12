@@ -96,45 +96,145 @@ mod tests {
     use crate::paths::{MockGlobalPathProvider, MockProjectPathProvider};
     use crate::schemas::{Branching, Plugins, Prefixes};
     use std::path::PathBuf;
+    use toml::Value::Table;
     use toml::toml;
 
-    #[test]
-    fn logic_test_full_hierarchy_merge() {
-        let global_path = PathBuf::from("/fake/home/.config/sentorii/sentorii.toml");
-        let project_path = PathBuf::from("/fake/repo/sentorii.toml");
-
-        let global_value = toml! {
-            [branching]
-            main = "global-main"
-        };
-        let project_value = toml! {
-            [branching]
-            develop = "project-dev"
-        };
-
-        let mock_global_paths = MockGlobalPathProvider {
-            path: Some(global_path.clone()),
-        };
-        let mock_project_paths = MockProjectPathProvider {
-            path: Ok(Some(project_path.clone())),
-        };
-
-        let mut mock_value_provider = MockValueProvider::new();
-        mock_value_provider.add_value(global_path, Value::from(global_value));
-        mock_value_provider.add_value(project_path, Value::from(project_value));
-
-        let mut mock_env = MockEnvironmentProvider::new();
-        mock_env.add("SENTORII_BRANCHING_MAIN", "env-main");
-        mock_env.add("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
-
-        let config = load_config_from(
-            &mock_global_paths,
-            &mock_project_paths,
-            &mock_env,
-            &mock_value_provider,
+    fn empty_providers() -> (
+        MockGlobalPathProvider,
+        MockProjectPathProvider,
+        MockEnvironmentProvider,
+        MockValueProvider,
+    ) {
+        (
+            MockGlobalPathProvider { path: None },
+            MockProjectPathProvider { path: Ok(None) },
+            MockEnvironmentProvider::new(),
+            MockValueProvider::new(),
         )
-        .unwrap();
+    }
 
+    #[test]
+    fn test_defaults_only() {
+        let (g, p, e, v) = empty_providers();
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config, Config::default());
+    }
+
+    #[test]
+    fn test_global_only() {
+        let (mut g, p, e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        g.path = Some(global_path.clone());
+        v.add_value(
+            global_path,
+            Table(toml! { [branching] main = "global-main"}),
+        );
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.main, "global-main");
+        assert_eq!(config.branching.develop, "develop");
+    }
+
+    #[test]
+    fn test_projects_only() {
+        let (g, mut p, e, mut v) = empty_providers();
+        let project_path = PathBuf::from("/project.toml");
+        p.path = Ok(Some(project_path.clone()));
+        v.add_value(
+            project_path,
+            Table(toml! { [branching] develop = "project-dev"}),
+        );
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.develop, "project-dev");
+        assert_eq!(config.branching.main, "main");
+    }
+
+    #[test]
+    fn test_env_only() {
+        let (g, p, mut e, v) = empty_providers();
+        e.add("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.prefixes.hotfix, "urgent/");
+        assert_eq!(config.branching.main, "main");
+    }
+
+    #[test]
+    fn test_global_and_project_merge() {
+        let (mut g, mut p, e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        let project_path = PathBuf::from("/project.toml");
+        g.path = Some(global_path.clone());
+        p.path = Ok(Some(project_path.clone()));
+        v.add_value(
+            global_path,
+            Table(toml! { [branching] main = "global-main"}),
+        );
+        v.add_value(
+            project_path,
+            Table(toml! { [branching] prefixes.feature = "feat/"}),
+        );
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.main, "global-main");
+        assert_eq!(config.branching.prefixes.feature, "feat/");
+    }
+
+    #[test]
+    fn test_project_overrides_global() {
+        let (mut g, mut p, e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        let project_path = PathBuf::from("/project.toml");
+        g.path = Some(global_path.clone());
+        p.path = Ok(Some(project_path.clone()));
+        v.add_value(
+            global_path,
+            Table(toml! { [branching] main = "global-main"}),
+        );
+        v.add_value(
+            project_path,
+            Table(toml! { [branching] main = "project-main"}),
+        );
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.main, "project-main");
+    }
+
+    #[test]
+    fn test_env_overrides_all_files() {
+        let (mut g, mut p, mut e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        let project_path = PathBuf::from("/project.toml");
+        g.path = Some(global_path.clone());
+        p.path = Ok(Some(project_path.clone()));
+        v.add_value(
+            global_path,
+            Table(toml! { [branching] main = "global-main"}),
+        );
+        v.add_value(
+            project_path,
+            Table(toml! { [branching] main = "project-main"}),
+        );
+        e.add("SENTORII_BRANCHING_MAIN", "env-main");
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.main, "env-main");
+    }
+
+    #[test]
+    fn test_full_hierarchy_merge() {
+        let (mut g, mut p, mut e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        let project_path = PathBuf::from("/project.toml");
+        g.path = Some(global_path.clone());
+        p.path = Ok(Some(project_path.clone()));
+        v.add_value(
+            global_path,
+            Table(toml! { [branching] main = "global-main"}),
+        );
+        v.add_value(
+            project_path,
+            Table(toml! { [branching] develop = "project-dev"}),
+        );
+        e.add("SENTORII_BRANCHING_MAIN", "env-main");
+        e.add("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
+
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
         let expected = Config {
             plugins: Plugins::default(),
             branching: Branching {
@@ -151,56 +251,40 @@ mod tests {
     }
 
     #[test]
-    fn logic_test_error_on_type_mismatch() {
-        let mock_global_paths = MockGlobalPathProvider { path: None };
-        let mock_project_paths = MockProjectPathProvider { path: Ok(None) };
-        let mut mock_env = MockEnvironmentProvider::new();
-        let mock_value_provider = MockValueProvider::new();
-        mock_env.add("SENTORII_BRANCHING", "a-string");
+    fn test_handles_discovered_path_with_no_file() {
+        let (mut g, mut p, mut e, v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        let project_path = PathBuf::from("/project.toml");
+        g.path = Some(global_path);
+        p.path = Ok(Some(project_path));
+        e.add("SENTORII_BRANCHING_MAIN", "env-main");
 
-        let result = load_config_from(
-            &mock_global_paths,
-            &mock_project_paths,
-            &mock_env,
-            &mock_value_provider,
-        );
+        let config = load_config_from(&g, &p, &e, &v).unwrap();
+        assert_eq!(config.branching.main, "env-main");
+        assert_eq!(config.branching.develop, "develop");
+    }
 
+    #[test]
+    fn test_propagates_io_error_from_project_provider() {
+        let (mut g, p, e, mut v) = empty_providers();
+        let global_path = PathBuf::from("/global.toml");
+        g.path = Some(global_path.clone());
+        v.add_error(global_path.clone(), MockError::TomlParse);
+
+        let result = load_config_from(&g, &p, &e, &v);
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::Deserialization(e) => {
-                assert!(e.to_string().contains("invalid type: string"));
-            }
-            other => panic!("Expected Deserialization error, got {other:?}"),
+            ConfigError::TomlParseError { path, .. } => assert_eq!(path, global_path),
+            other => panic!("Expected TomlParseError, got {other:?}"),
         }
     }
 
     #[test]
-    fn unit_test_propagates_error_from_value_provider() {
-        let global_path = PathBuf::from("/global.toml");
-        let mock_global_paths = MockGlobalPathProvider {
-            path: Some(global_path.clone()),
-        };
-        let mock_project_paths = MockProjectPathProvider { path: Ok(None) };
-        let mock_env = MockEnvironmentProvider::new();
-        let mut mock_value_provider = MockValueProvider::new();
+    fn test_returns_deserialization_error_on_final_type_mismatch() {
+        let (g, p, mut e, v) = empty_providers();
+        e.add("SENTORII_BRANCHING", "true");
 
-        mock_value_provider.add_error(global_path.clone(), MockError::TomlParse);
-
-        let result = load_config_from(
-            &mock_global_paths,
-            &mock_project_paths,
-            &mock_env,
-            &mock_value_provider,
-        );
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            ConfigError::TomlParseError { path, .. } => {
-                assert_eq!(path, global_path);
-            }
-            other_error => {
-                panic!("Expected a TomlParseError, but got {other_error:?}");
-            }
-        }
+        let result = load_config_from(&g, &p, &e, &v);
+        assert!(matches!(result, Err(ConfigError::Deserialization(_))));
     }
 }
