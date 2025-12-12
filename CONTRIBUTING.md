@@ -23,7 +23,7 @@ We use the **GitFlow** methodology to develop Sentorii itself. This means all ne
 4.  **Follow Coding Standards:** To make quality checks easy and consistent, we use the `just` command runner.
     <br>**Before submitting a Pull Request, please run the master check command from the root of the repository:**
     ```bash
-    # This single command will format, lint, and run the complete test suite.
+    # This single command will format, lint, and run the complete tests suite.
     just check
     ```
 5.  **Commit Your Changes:** We use the [Conventional Commits](https://www.conventionalcommits.org/) standard for our commit messages.
