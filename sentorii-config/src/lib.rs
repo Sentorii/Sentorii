@@ -28,12 +28,13 @@
 
 #![forbid(unsafe_code)]
 
-pub mod env;
+pub(crate) mod env;
+pub(crate) mod loader;
+pub(crate) mod merger;
+pub(crate) mod parser;
+pub(crate) mod paths;
+
 pub mod error;
-pub mod loader;
-pub mod merger;
-pub mod parser;
-pub mod paths;
 pub mod schemas;
 
 pub use error::ConfigError;

@@ -1,6 +1,5 @@
 //! Provides a testable abstraction and parsing logic for the process environment.
 
-use crate::ConfigError;
 use toml::{Table, Value};
 
 #[cfg(test)]
@@ -26,7 +25,7 @@ impl EnvironmentProvider for ProcessEnvironmentProvider {
 
 /// A mock `EnvironmentProvider` for use in tests.
 #[cfg(test)]
-pub(crate) struct MockEnvironmentProvider {
+pub struct MockEnvironmentProvider {
     vars: HashMap<String, String>,
 }
 
@@ -53,11 +52,11 @@ impl EnvironmentProvider for MockEnvironmentProvider {
 
 /// Builds a nested `toml::Value` from a set of environment variables.
 ///
-/// This is the core of the introspective environment variable laoding. It iterates
+/// This is the core of the introspective environment variable loading. It iterates
 /// through variables provided by an `EnvironmentProvider`, filters for the ones
 /// starting with `SENTORII_`, and constructs a `toml::Value` that mirrors
 /// the `Config` struct's shape.
-pub(crate) fn build_value_from_env<E: EnvironmentProvider>(env: &E) -> Result<Value, ConfigError> {
+pub fn build_value_from_env<E: EnvironmentProvider>(env: &E) -> Value {
     let mut root_table = Table::new();
 
     for (key, value_str) in env.vars() {
@@ -72,29 +71,14 @@ pub(crate) fn build_value_from_env<E: EnvironmentProvider>(env: &E) -> Result<Va
             .split(ENV_SEPARATOR)
             .collect::<Vec<_>>();
 
-        let value = match value_str.parse::<Value>() {
-            Ok(parsed_value) => parsed_value,
-            Err(e) => {
-                let message = e.message();
-                if message.contains("expected literal string")
-                    || message.contains("expected a value")
-                        && !value_str.starts_with('[')
-                        && !value_str.ends_with(']')
-                {
-                    Value::String(value_str.clone())
-                } else {
-                    return Err(ConfigError::EnvVarTomlParse {
-                        var_name: key,
-                        source: e,
-                    });
-                }
-            }
-        };
+        let value = value_str
+            .parse::<Value>()
+            .unwrap_or_else(|_| Value::String(value_str.clone()));
 
         insert_value_by_path(&mut root_table, &path, value);
     }
 
-    Ok(Value::Table(root_table))
+    Value::Table(root_table)
 }
 
 /// Recursively inserts a value into a `toml::Table` following a path of keys.
@@ -126,7 +110,7 @@ mod tests {
     fn test_build_value_from_single_simple_var() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_MAIN", "value");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { main = "value" }));
     }
 
@@ -134,7 +118,7 @@ mod tests {
     fn test_build_value_from_nested_var() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_TABLE_KEY", "value");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { table = { key = "value" }}));
     }
 
@@ -143,7 +127,7 @@ mod tests {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("sentorii_lower", "1");
         mock_env.add("SENTORII_UPPER", "2");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { lower = 1 upper = 2 }));
     }
 
@@ -153,7 +137,7 @@ mod tests {
         mock_env.add("SENTORII_A", "1");
         mock_env.add("SENTORII_B", "true");
         mock_env.add("SENTORII_TABLE_A", "val");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { a = 1 b = true table = { a = "val" }}));
     }
 
@@ -161,7 +145,7 @@ mod tests {
     fn test_build_value_parses_toml_string() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_KEY", "my-value");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { key = "my-value" }));
     }
 
@@ -169,7 +153,7 @@ mod tests {
     fn test_build_value_parses_toml_quoted_string() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_KEY", "\"my-value\"");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { key = "my-value" }));
     }
 
@@ -177,7 +161,7 @@ mod tests {
     fn test_build_value_parses_toml_integer() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_KEY", "123");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { key = 123 }));
     }
 
@@ -185,7 +169,7 @@ mod tests {
     fn test_build_value_parses_toml_boolean() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_KEY", "true");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { key = true }));
     }
 
@@ -193,7 +177,7 @@ mod tests {
     fn test_build_value_parses_toml_array() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_KEY", "[1, \"two\"]");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         let expected = Table(toml::from_str("key = [1, \"two\"]").unwrap());
         assert_eq!(value, expected);
     }
@@ -203,29 +187,15 @@ mod tests {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("OTHER_VAR", "123");
         mock_env.add("SENTORII_A", "1");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { a = 1}));
-    }
-
-    #[test]
-    fn test_build_value_returns_error_for_malformed_toml_value() {
-        let mut mock_env = MockEnvironmentProvider::new();
-        mock_env.add("SENTORII_A", "[1,2,");
-        let result = build_value_from_env(&mock_env);
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            ConfigError::EnvVarTomlParse { var_name, .. } => {
-                assert_eq!(var_name, "SENTORII_A");
-            }
-            _ => panic!("Expected EnvVarTomlParse error"),
-        }
     }
 
     #[test]
     fn test_build_value_handles_string_that_looks_like_malformed_number() {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_A", "123a");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { a = "123a" }));
     }
 
@@ -234,7 +204,7 @@ mod tests {
         let mut mock_env = MockEnvironmentProvider::new();
         mock_env.add("SENTORII_A_B", "1");
         mock_env.add("SENTORII_A_B_C", "2");
-        let value = build_value_from_env(&mock_env).unwrap();
+        let value = build_value_from_env(&mock_env);
         assert_eq!(value, Table(toml! { a = { b = 1 }}));
     }
 }

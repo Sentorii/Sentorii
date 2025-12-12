@@ -43,7 +43,7 @@ impl ProjectPathProvider for SystemProjectPathProvider {
 
 /// A mock `ProjectPathProvider` for use in tests.
 #[cfg(test)]
-pub(crate) struct MockProjectPathProvider {
+pub struct MockProjectPathProvider {
     pub path: io::Result<Option<PathBuf>>,
 }
 
@@ -86,7 +86,7 @@ impl GlobalPathProvider for SystemGlobalPathProvider {
 
 /// A mock `GlobalPathProvider` for use in tests.
 #[cfg(test)]
-pub(crate) struct MockGlobalPathProvider {
+pub struct MockGlobalPathProvider {
     pub path: Option<PathBuf>,
 }
 

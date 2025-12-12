@@ -3,7 +3,7 @@
 use toml::Value;
 
 /// A trait for deep-merging one object into another.
-pub(crate) trait Merge {
+pub trait Merge {
     /// Deeply merges a `source` object into `self`.
     fn merge(&mut self, source: Self);
 }

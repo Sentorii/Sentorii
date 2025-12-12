@@ -2,16 +2,11 @@
 #![allow(clippy::expect_used)]
 
 use assert_cmd::Command;
+use assert_fs::TempDir;
 use assert_fs::prelude::*;
-use sentorii_config::env::{EnvironmentProvider, ProcessEnvironmentProvider};
-use sentorii_config::parser::{SystemValueProvider, ValueProvider};
-use sentorii_config::paths::{
-    GlobalPathProvider, ProjectPathProvider, SystemGlobalPathProvider, SystemProjectPathProvider,
-};
-use std::collections::BTreeMap;
+use sentorii_config::{Config, ConfigError, load_config};
 use std::env;
-use std::path::PathBuf;
-use toml::{Table, Value};
+use std::path::{Path, PathBuf};
 
 struct ChangeDir {
     original: PathBuf,
@@ -27,73 +22,109 @@ impl ChangeDir {
 
 impl Drop for ChangeDir {
     fn drop(&mut self) {
-        env::set_current_dir(&self.original).expect("Failed to change directory");
+        env::set_current_dir(&self.original).expect("Failed to restore original directory");
     }
 }
 
-#[test]
-fn systemprojectpathprovider_finds_git_root_correctly() {
-    let temp_repo = assert_fs::TempDir::new().unwrap();
+fn in_dir<F>(path: &Path, closure: F)
+where
+    F: FnOnce(),
+{
+    let _guard = ChangeDir::new(path);
+    closure();
+}
+
+fn setup_git_repo(dir: &TempDir) {
     Command::new("git")
         .arg("init")
-        .current_dir(temp_repo.path())
+        .arg("--quiet")
+        .current_dir(dir.path())
         .assert()
         .success();
-    let subdir = temp_repo.child("src/app");
-    subdir.create_dir_all().unwrap();
-    let expected_config_path = temp_repo.path().join(".sentorii").join("config.toml");
-    subdir.child(".sentorii").create_dir_all().unwrap();
+}
 
-    let _guard = ChangeDir::new(subdir.path());
-    let provider = SystemProjectPathProvider;
-    let found_path = provider.project_config_path().unwrap();
+fn setup_global_config(fake_home: &TempDir, content: &str) {
+    let global_dir = fake_home.child(".config/sentorii");
+    global_dir.create_dir_all().unwrap();
+    global_dir.child("config.toml").write_str(content).unwrap();
+}
 
-    assert_eq!(found_path, Some(expected_config_path));
+fn setup_project_config(repo_root: &TempDir, content: &str) {
+    let project_dir = repo_root.child(".sentorii");
+    project_dir.create_dir_all().unwrap();
+    project_dir.child("config.toml").write_str(content).unwrap();
 }
 
 #[test]
-fn systemglobalpathprovider_finds_global_path_correctly() {
-    let fake_home = assert_fs::TempDir::new().unwrap();
-    let expected_global_path = fake_home.path().join(".config/sentorii/config.toml");
+fn test_full_hierarchy() {
+    let temp_repo = TempDir::new().unwrap();
+    let fake_home = TempDir::new().unwrap();
 
-    temp_env::with_var("HOME", Some(fake_home.path()), || {
-        let provider = SystemGlobalPathProvider::new(Some(fake_home.path().to_path_buf()));
-        let found_path = provider.global_config_path();
-        assert_eq!(found_path, Some(expected_global_path));
-    });
-}
-
-#[test]
-fn processenvironment_reads_from_real_environment() {
-    let vars_to_set = vec![
-        ("SENTORII_TEST_VAR_1", Some("value1")),
-        ("SENTORII_TEST_VAR_2", Some("value2")),
-    ];
-
-    temp_env::with_vars(vars_to_set, || {
-        let provider = ProcessEnvironmentProvider;
-        let found_vars: BTreeMap<String, String> = provider.vars().collect();
-
-        assert_eq!(found_vars.get("SENTORII_TEST_VAR_1").unwrap(), "value1");
-        assert_eq!(found_vars.get("SENTORII_TEST_VAR_2").unwrap(), "value2");
-    });
-}
-
-#[test]
-fn systemvalueprovider_loads_and_parses_file_correctly() {
-    let temp_file = assert_fs::NamedTempFile::new("config.toml").unwrap();
-    let toml_content = r#"
+    setup_git_repo(&temp_repo);
+    setup_global_config(
+        &fake_home,
+        r#"
 [branching]
-main = "live"
-"#;
-    temp_file.write_str(toml_content).unwrap();
+main = "from-global"
+"#,
+    );
+    setup_project_config(
+        &temp_repo,
+        r#"
+[branching]
+main = "from-project"
+develop = "from-project"
+"#,
+    );
 
-    let provider = SystemValueProvider;
-    let value_result = provider
-        .load_from(Some(temp_file.path().to_path_buf()))
-        .unwrap();
+    in_dir(temp_repo.path(), || {
+        let vars_to_set = vec![
+            ("HOME", Some(fake_home.path().to_str().unwrap())),
+            ("SENTORII_BRANCHING_MAIN", Some("from-env")),
+        ];
 
-    let expected_table: Table = toml_content.parse().unwrap();
-    let expected_value = Value::Table(expected_table);
-    assert_eq!(value_result, Some(expected_value));
+        temp_env::with_vars(vars_to_set, || {
+            let config = load_config().unwrap();
+
+            assert_eq!(config.branching.main, "from-env");
+            assert_eq!(config.branching.develop, "from-project");
+            assert_eq!(config.branching.prefixes.feature, "feature/");
+        });
+    });
+}
+
+#[test]
+fn test_no_project_config_is_ok() {
+    let temp_repo = TempDir::new().unwrap();
+    let fake_home = TempDir::new().unwrap();
+    setup_git_repo(&temp_repo);
+
+    in_dir(temp_repo.path(), || {
+        temp_env::with_var("HOME", Some(fake_home.path().to_str().unwrap()), || {
+            let config = load_config().unwrap();
+            assert_eq!(config, Config::default());
+        });
+    });
+}
+
+#[test]
+fn test_malformed_project_file_returns_error() {
+    let temp_repo = TempDir::new().unwrap();
+    let fake_home = TempDir::new().unwrap();
+    setup_git_repo(&temp_repo);
+    setup_project_config(&temp_repo, "this is not a valid toml");
+
+    in_dir(temp_repo.path(), || {
+        temp_env::with_var("HOME", Some(fake_home.path().to_str().unwrap()), || {
+            let result = load_config();
+
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                ConfigError::TomlParseError { path, .. } => {
+                    assert_eq!(path, temp_repo.path().join(".sentorii").join("config.toml"));
+                }
+                other => panic!("Expected Toml error, got {other:?}"),
+            }
+        });
+    });
 }

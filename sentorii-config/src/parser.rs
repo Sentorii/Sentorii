@@ -38,14 +38,14 @@ impl ValueProvider for SystemValueProvider {
 
 #[cfg(test)]
 #[derive(Debug, Clone)]
-pub(crate) enum MockError {
+pub enum MockError {
     TomlParse,
 }
 
 /// A mock `ValueProvider` for use in unit tests.
 /// It can be pre-loaded with `Value`s or errors for specific paths.
 #[cfg(test)]
-pub(crate) struct MockValueProvider {
+pub struct MockValueProvider {
     values: HashMap<PathBuf, Result<Option<Value>, MockError>>,
 }
 

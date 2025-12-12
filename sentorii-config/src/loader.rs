@@ -56,7 +56,7 @@ pub fn load_config() -> Result<Config, ConfigError> {
 }
 
 /// Internal loader function generic over all provider traits.
-pub(crate) fn load_config_from<G, P, E, V>(
+pub fn load_config_from<G, P, E, V>(
     global_paths: &G,
     project_paths: &P,
     env: &E,
@@ -80,7 +80,7 @@ where
         merged_config.merge(project_value);
     }
 
-    let env_value = build_value_from_env(env)?;
+    let env_value = build_value_from_env(env);
     merged_config.merge(env_value);
 
     Ok(merged_config.try_into()?)
