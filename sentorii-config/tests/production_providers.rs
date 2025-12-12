@@ -6,6 +6,7 @@ use assert_fs::TempDir;
 use assert_fs::prelude::*;
 use sentorii_config::{Config, ConfigError, load_config};
 use std::env;
+use std::fs::canonicalize;
 use std::path::{Path, PathBuf};
 
 struct ChangeDir {
@@ -112,7 +113,11 @@ fn test_malformed_project_file_returns_error() {
     let temp_repo = TempDir::new().unwrap();
     let fake_home = TempDir::new().unwrap();
     setup_git_repo(&temp_repo);
-    setup_project_config(&temp_repo, "this is not a valid toml");
+
+    let project_config_file = temp_repo.child(".sentorii").child("config.toml");
+    project_config_file
+        .write_str("this is not a valid toml")
+        .unwrap();
 
     in_dir(temp_repo.path(), || {
         temp_env::with_var("HOME", Some(fake_home.path().to_str().unwrap()), || {
@@ -121,7 +126,11 @@ fn test_malformed_project_file_returns_error() {
             assert!(result.is_err());
             match result.unwrap_err() {
                 ConfigError::TomlParseError { path, .. } => {
-                    assert_eq!(path, temp_repo.path().join(".sentorii").join("config.toml"));
+                    let canonical_found_path = canonicalize(&path)
+                        .expect("Failed to canonicalize the path from the error");
+                    let canonical_expected_path = canonicalize(project_config_file.path())
+                        .expect("Failed to canonicalize the expected path");
+                    assert_eq!(canonical_found_path, canonical_expected_path);
                 }
                 other => panic!("Expected Toml error, got {other:?}"),
             }
