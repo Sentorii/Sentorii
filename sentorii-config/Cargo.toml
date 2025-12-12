@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 thiserror = "2.0.17"
 serde = { version = "1.0.228", features = ["derive"] }
-directories = "6.0.0"
 toml = "0.9.8"
 dirs = "6.0.0"
 
