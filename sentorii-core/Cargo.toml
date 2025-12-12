@@ -2,6 +2,8 @@
 name = "sentorii-core"
 version = "0.1.0"
 edition = "2024"
+description = "Headless, message-driven engine for the Sentorii application."
+license = "MIT"
 
 [dependencies]
 

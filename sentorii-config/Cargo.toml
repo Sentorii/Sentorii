@@ -2,6 +2,8 @@
 name = "sentorii-config"
 version = "0.1.0"
 edition = "2024"
+description = "The configuration that drives the Sentorii application"
+license = "MIT"
 
 [dependencies]
 thiserror = "2.0.17"
