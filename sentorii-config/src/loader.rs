@@ -124,8 +124,8 @@ mod tests {
         mock_value_provider.add_value(project_path, Value::from(project_value));
 
         let mut mock_env = MockEnvironmentProvider::new();
-        mock_env.add_string("SENTORII_BRANCHING_MAIN", "env-main");
-        mock_env.add_string("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
+        mock_env.add("SENTORII_BRANCHING_MAIN", "env-main");
+        mock_env.add("SENTORII_BRANCHING_PREFIXES_HOTFIX", "urgent/");
 
         let config = load_config_from(
             &mock_global_paths,
@@ -156,7 +156,7 @@ mod tests {
         let mock_project_paths = MockProjectPathProvider { path: Ok(None) };
         let mut mock_env = MockEnvironmentProvider::new();
         let mock_value_provider = MockValueProvider::new();
-        mock_env.add_string("SENTORII_BRANCHING", "a-string");
+        mock_env.add("SENTORII_BRANCHING", "a-string");
 
         let result = load_config_from(
             &mock_global_paths,
