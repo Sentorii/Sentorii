@@ -23,6 +23,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Check Formatting
         run: cargo fmt --all --check
 
@@ -30,7 +33,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Run Tests
-        run: cargo tests --workspace --all-targets --features tests-integration
+        run: cargo nextest run --workspace --all-targets --all-features
 
   create-release:
     name: Create Release
