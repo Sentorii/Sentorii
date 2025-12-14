@@ -1,11 +1,12 @@
 //! Defines different versions of steps.
 
-use crate::command::SentoriiCommand;
+use crate::command::CommandStep;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 /// A high-level, UI-friendly category for a command step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum StepCategory {
+pub enum Category {
     Check,
     Checkout,
     Pull,
@@ -14,17 +15,6 @@ pub enum StepCategory {
     Tag,
     DeleteBranch,
     Plugin,
-}
-
-/// A rich object representing a command to be executed as part of a workflow.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommandStep {
-    /// The high-level category of the command.
-    pub category: StepCategory,
-    /// The specific, executable command.
-    pub command: SentoriiCommand,
-    /// The human-readable string to be displayed in the UI.
-    pub display_text: String,
 }
 
 /// The declarative representation of a single step within a workflow plan.

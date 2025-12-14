@@ -1,8 +1,99 @@
 //! Defines all types related to a single, executable step in a workflow.
 
-use super::step::StepCategory;
+use super::step::Category;
+use crate::context::Context;
+use crate::error::CommandBuildError;
+use crate::event::{RecoveryAction, RevertAction};
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::fmt::Debug;
+
+/// A low-level, executable command ready to be executed by a `CommandRunner`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutableCommand {
+    pub program: String,
+    pub args: Vec<String>,
+}
+
+/// Contract for all self-contained command steps.
+pub trait Command: Debug {
+    /// Provides a human-readable description for the UI.
+    fn description(&self) -> String;
+    /// Provides a category for UI grouping and icons.
+    fn category(&self) -> Category;
+    /// Translates the step into a low-level command, resolving placeholders.
+    fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError>;
+    /// Provides a list of possible actions to revert this step's effects.
+    fn possible_reverts(&self) -> Vec<RevertAction>;
+    /// Provides a list of possible actions to recover from a failure of this step.
+    fn possible_recoveries(&self) -> Vec<RecoveryAction>;
+}
+
+/// Defines the `CommandStep` enum and automatically implements the `Command` trait for it.
+///
+/// This macro is the single source of truth for all commands in the system.
+/// To add a new command:
+/// 1. Create a new struct (e.g., `MyNewCommand`).
+/// 2. Implement the `Command` trait for `MyNewCommand`.
+/// 3. Add one line to this macro invocation: `MyNew(MyNewCommand)`.
+/// 4. (Optional) Create a top-level helper function `pub fn my_new(...) -> Step`.
+macro_rules! command_step {
+    ( $( $(#[$variant_meta:meta])* $variant:ident($command_type:ty) ),* ) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub enum CommandStep {
+            $( $(#[$variant_meta])* $variant($command_type), )*
+        }
+
+        impl Command for CommandStep {
+            fn description(&self) -> String {
+                match self { $( Self::$variant(cmd) => cmd.description(), )* }
+            }
+            fn category(&self) -> Category {
+                match self { $( Self::$variant(cmd) => cmd.category(), )* }
+            }
+            fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
+                match self { $( Self::$variant(cmd) => cmd.to_executable(context), )* }
+            }
+            fn possible_reverts(&self) -> Vec<RevertAction> {
+                match self { $( Self::$variant(cmd) => cmd.possible_reverts(), )* }
+            }
+            fn possible_recoveries(&self) -> Vec<RecoveryAction> {
+                match self { $( Self::$variant(cmd) => cmd.possible_recoveries(), )* }
+            }
+        }
+    };
+}
+
+command_step!(GitPull(GitPullCommand));
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitPullCommand {
+    pub remote: String,
+    pub branch: String,
+}
+
+impl Command for GitPullCommand {
+    fn description(&self) -> String {
+        format!(
+            "Pulling branch '{}' from remote '{}'",
+            &self.branch, &self.remote
+        )
+    }
+    fn category(&self) -> Category {
+        Category::Pull
+    }
+    fn to_executable(&self, _context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
+        Ok(ExecutableCommand {
+            program: "git".to_string(),
+            args: vec!["pull".to_string(), self.branch.clone()],
+        })
+    }
+    fn possible_reverts(&self) -> Vec<RevertAction> {
+        vec![]
+    }
+    fn possible_recoveries(&self) -> Vec<RecoveryAction> {
+        vec![]
+    }
+}
 
 /// A detailed, type-safe representation of every possible command the engine can execute.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,110 +128,6 @@ pub enum SentoriiCommand {
         executable: String,
         args: Vec<String>,
     },
-}
-
-impl SentoriiCommand {
-    /// Returns the corresponding high-level category for the command.
-    #[must_use]
-    pub const fn category(&self) -> StepCategory {
-        match self {
-            Self::GitStatusCheck => StepCategory::Check,
-            Self::GitCheckout { .. } | Self::GitCheckoutNewBranch { .. } => StepCategory::Checkout,
-            Self::GitPull { .. } => StepCategory::Pull,
-            Self::GitMergeNoFf { .. } => StepCategory::Merge,
-            Self::GitPush { .. } | Self::GitPushTags => StepCategory::Push,
-            Self::GitTag { .. } => StepCategory::Tag,
-            Self::GitBranchDelete { .. } => StepCategory::DeleteBranch,
-            Self::PluginExecute { .. } => StepCategory::Plugin,
-        }
-    }
-
-    // --- Ergonomic Constructors ---
-
-    pub fn git_checkout(branch: impl Into<String>) -> Self {
-        Self::GitCheckout {
-            branch: branch.into(),
-        }
-    }
-
-    pub fn git_checkout_new_branch(branch: impl Into<String>) -> Self {
-        Self::GitCheckoutNewBranch {
-            branch: branch.into(),
-        }
-    }
-
-    pub fn git_pull(remote: impl Into<String>, branch: impl Into<String>) -> Self {
-        Self::GitPull {
-            remote: remote.into(),
-            branch: branch.into(),
-        }
-    }
-
-    pub fn git_merge(branch: impl Into<String>) -> Self {
-        Self::GitMergeNoFf {
-            branch: branch.into(),
-        }
-    }
-
-    pub fn git_push(remote: impl Into<String>, branch: impl Into<String>) -> Self {
-        Self::GitPush {
-            remote: remote.into(),
-            branch: branch.into(),
-        }
-    }
-
-    pub fn git_tag(tag: impl Into<String>) -> Self {
-        Self::GitTag { tag: tag.into() }
-    }
-
-    pub fn git_delete_branch(branch: impl Into<String>) -> Self {
-        Self::GitBranchDelete {
-            branch: branch.into(),
-        }
-    }
-
-    pub fn plugin_execute<E, A>(executable: E, args: A) -> Self
-    where
-        E: Into<String>,
-        A: IntoIterator,
-        A::Item: AsRef<str>,
-    {
-        Self::PluginExecute {
-            executable: executable.into(),
-            args: args.into_iter().map(|s| s.as_ref().to_string()).collect(),
-        }
-    }
-}
-
-impl fmt::Display for SentoriiCommand {
-    /// Formats the command into its human-readable shell string representation.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::GitStatusCheck => write!(f, "git status --porcelain"),
-            Self::GitCheckout { branch } => write!(f, "git checkout {branch}"),
-            Self::GitPull { remote, branch } => write!(f, "git pull {remote} {branch}"),
-            Self::GitCheckoutNewBranch { branch } => write!(f, "git checkout -b {branch}"),
-            Self::GitMergeNoFf { branch } => write!(f, "git merge --no-ff {branch}"),
-            Self::GitPush { remote, branch } => write!(f, "git push {remote} {branch}"),
-            Self::GitTag { tag } => write!(f, "git tag {tag}"),
-            Self::GitPushTags => write!(f, "git push --tags"),
-            Self::GitBranchDelete { branch } => write!(f, "git branch -d {branch}"),
-            Self::PluginExecute { executable, args } => {
-                let mut command_str = executable.clone();
-                for arg in args {
-                    command_str.push(' ');
-                    if arg.contains(' ') {
-                        command_str.push('"');
-                        command_str.push_str(arg);
-                        command_str.push('"');
-                    } else {
-                        command_str.push_str(arg);
-                    }
-                }
-                write!(f, "{command_str}")
-            }
-        }
-    }
 }
 
 #[cfg(test)]

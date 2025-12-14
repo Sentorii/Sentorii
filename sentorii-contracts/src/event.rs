@@ -1,7 +1,9 @@
 //! Defines the complete, structured language for the backend to communicate its state.
 
-use crate::step::{CommandStep, Step};
+use crate::command::CommandStep;
+use crate::step::Step;
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 
 /// The execution status of a single workflow step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,7 +82,7 @@ pub struct IdentifiedStep {
 #[derive(Debug)]
 pub enum Event {
     /// Sent once at the beginning of a workflow, containing the full execution plan.
-    WorkflowPlanReady(Vec<IdentifiedStep>, WorkflowMetadata),
+    WorkflowPlanReady(Vec<Step>, WorkflowMetadata),
     /// Sent when a specific step is about to be executed.
     StepStarted(u32),
     /// Sent when a specific step has finished, with its status.
@@ -91,6 +93,8 @@ pub enum Event {
     WorkflowComplete(Result<(), String>),
     /// Sent when a step fails and the workflow is paused, awaiting user intervention.
     WorkflowPausedOnFailure(FailureInfo),
+    /// Sent once when engine is busy, but a new workflow request is received.
+    WorkflowRejected { reason: String },
     /// Sent when the engine requires a string input from the user to proceed.
     StringInputRequired(StringInputRequest),
     /// Sent when the engine requires a selection from the user to proceed.

@@ -12,6 +12,8 @@
 //! use to talk to each other.
 
 pub mod command;
+pub mod context;
+pub mod error;
 pub mod event;
 pub mod runner;
 pub mod step;
