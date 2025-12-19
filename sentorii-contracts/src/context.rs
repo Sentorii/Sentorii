@@ -2,7 +2,10 @@ use std::fmt;
 use crate::error::CommandBuildError;
 use paste::paste;
 use serde::{Deserialize, Serialize};
-use sentorii_config::Config;
+
+pub trait FromConfig {
+    fn into_context(self) -> Context;
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueSource {
@@ -133,12 +136,3 @@ context!(
         tag: String
     }
 );
-
-impl ContextBuilder {
-    pub fn from_config(config: &Config) -> Self {
-        let builder = Self::new();
-        builder
-            .with_main(&config.branching.main)
-            .with_develop(&config.branching.develop)
-    }
-}
