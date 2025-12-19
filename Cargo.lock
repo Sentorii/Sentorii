@@ -549,6 +549,7 @@ dependencies = [
  "async-trait",
  "paste",
  "regex",
+ "sentorii-config",
  "serde",
  "thiserror",
  "tokio",

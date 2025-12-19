@@ -7,10 +7,10 @@
 use crate::error::CoreError;
 use sentorii_contracts::step::Step;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{create_dir_all, read_to_string, remove_file, rename, write};
 use uuid::Uuid;
+use sentorii_contracts::context::Context;
 
 const STATE_FILENAME: &str = "workflow-state.json";
 
@@ -24,7 +24,7 @@ pub struct PersistentWorkflowState {
     /// A complete copy of all steps in the workflow plan.
     pub steps: Vec<Step>,
     /// A map of key-value pairs, collected from user input or initial parameters.
-    pub context: HashMap<String, String>,
+    pub context: Context,
     /// The current condition of the workflow, e.g., "Running", or "`PausedOnFailure`".
     pub status: String,
 }

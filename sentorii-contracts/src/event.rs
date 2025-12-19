@@ -1,7 +1,6 @@
 //! Defines the complete, structured language for the backend to communicate its state.
 
-use crate::command::CommandStep;
-use crate::step::Step;
+use crate::step::{Category, CommandStep, Step};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
@@ -34,6 +33,18 @@ pub struct FailureInfo {
     pub failed_command: CommandStep,
     pub possible_reverts: Vec<RevertAction>,
     pub possible_recoveries: Vec<RevertAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaticStepInfo {
+    pub description: String,
+    pub category: Category,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeStepInfo {
+    pub index: u32,
+    pub description: String,
 }
 
 /// A request from the engine to the UI for a string input.
@@ -82,9 +93,9 @@ pub struct IdentifiedStep {
 #[derive(Debug)]
 pub enum Event {
     /// Sent once at the beginning of a workflow, containing the full execution plan.
-    WorkflowPlanReady(Vec<Step>, WorkflowMetadata),
+    WorkflowPlanReady(Vec<StaticStepInfo>, WorkflowMetadata),
     /// Sent when a specific step is about to be executed.
-    StepStarted(u32),
+    StepStarted(RuntimeStepInfo),
     /// Sent when a specific step has finished, with its status.
     StepFinished(u32, StepStatus),
     /// Provides real-time log output from a running command.

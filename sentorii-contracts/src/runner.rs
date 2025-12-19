@@ -1,6 +1,5 @@
 //! Defines the abstract interface for executing commands.
 
-use crate::command::SentoriiCommand;
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -28,7 +27,7 @@ pub trait CommandRunner {
     /// Executes the given command.
     async fn execute(
         &self,
-        command: SentoriiCommand,
+        command: CommandStep,
     ) -> Result<ExecutionStatus, CommandExecutionError>;
 }
 
@@ -36,15 +35,16 @@ pub trait CommandRunner {
 
 #[cfg(feature = "test_utils")]
 use std::sync::{Arc, Mutex};
+use crate::step::CommandStep;
 
 /// A mock implementation of the `CommandRunner` trait for use in tests.
 #[cfg(feature = "test_utils")]
 #[derive(Debug, Clone, Default)]
 pub struct MockCommandRunner {
     /// A thread-safe log of all commands that were "executed"
-    pub executed_commands: Arc<Mutex<Vec<SentoriiCommand>>>,
+    pub executed_commands: Arc<Mutex<Vec<CommandStep>>>,
     /// If set, the runner will return `ExecutionStatus::Failure` when it encounters this command.
-    pub should_fail_on: Option<SentoriiCommand>,
+    pub should_fail_on: Option<CommandStep>,
 }
 
 #[cfg(feature = "test_utils")]
@@ -52,7 +52,7 @@ pub struct MockCommandRunner {
 impl CommandRunner for MockCommandRunner {
     async fn execute(
         &self,
-        command: SentoriiCommand,
+        command: CommandStep,
     ) -> Result<ExecutionStatus, CommandExecutionError> {
         self.executed_commands
             .lock()
@@ -71,12 +71,14 @@ impl CommandRunner for MockCommandRunner {
 #[cfg(test)]
 #[cfg(feature = "test_utils")]
 mod tests {
+    use crate::command::{GitCheckOutCommand, GitStatusCheckCommand};
+    use crate::context::ValueSource;
     use super::*;
 
     #[tokio::test]
     async fn test_mock_runner_success() {
         let runner = MockCommandRunner::default();
-        let command = SentoriiCommand::GitStatusCheck;
+        let command = CommandStep::GitStatusCheck(GitStatusCheckCommand);
 
         let result = runner.execute(command.clone()).await;
         assert_eq!(result, Ok(ExecutionStatus::Success));
@@ -92,17 +94,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_runner_failure() {
-        let fail_command = SentoriiCommand::git_pull("origin", "main");
+        let fail_command = CommandStep::GitCheckout(GitCheckOutCommand {
+            branch: ValueSource::Literal("fail".to_string()),
+        });
         let runner = MockCommandRunner {
             should_fail_on: Some(fail_command.clone()),
             ..Default::default()
         };
 
-        let status_ok = runner.execute(SentoriiCommand::GitStatusCheck).await;
+        let status_ok = runner.execute(CommandStep::GitStatusCheck(GitStatusCheckCommand)).await;
         assert_eq!(status_ok, Ok(ExecutionStatus::Success));
 
         let status_fail = runner
-            .execute(SentoriiCommand::git_pull("origin", "main"))
+            .execute(CommandStep::GitCheckout(GitCheckOutCommand {
+                branch: ValueSource::Literal("fail".to_string()),
+            }))
             .await;
         assert_eq!(status_fail, Ok(ExecutionStatus::Failure));
 
@@ -126,7 +132,7 @@ mod tests {
 
         assert!(handle.join().is_err(), "Thread did not panic as expected.");
 
-        let result = runner.execute(SentoriiCommand::GitStatusCheck).await;
+        let result = runner.execute(CommandStep::GitStatusCheck(GitStatusCheckCommand)).await;
 
         assert_eq!(result, Err(CommandExecutionError::LockPoisoned));
     }

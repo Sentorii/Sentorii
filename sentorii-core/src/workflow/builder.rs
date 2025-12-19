@@ -1,33 +1,50 @@
 //! A builder for constructing a `Workflow` object and emitting initial events.
 
-use crate::workflow::runner::Workflow;
 use crate::workflow::state::PersistentWorkflowState;
-use sentorii_contracts::command::CommandStep;
 use sentorii_contracts::event::{Event, WorkflowMetadata};
 use sentorii_contracts::step::Step;
-use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
+use sentorii_contracts::context::Context;
+use sentorii_contracts::runner::CommandRunner;
+use crate::error::CoreError;
 
 #[derive(Debug)]
-pub struct WorkflowBuilder {
+pub struct Workflow<R: CommandRunner> {
     id: Uuid,
     event_tx: mpsc::Sender<Event>,
-    steps: Vec<Step>,
-    initial_context: HashMap<String, String>,
+    runner: Arc<R>,
+    state: PersistentWorkflowState,
+    git_root: PathBuf,
 }
 
-impl WorkflowBuilder {
+#[derive(Debug)]
+pub struct WorkflowBuilder<R: CommandRunner> {
+    id: Uuid,
+    event_tx: mpsc::Sender<Event>,
+    runner: R,
+    git_root: PathBuf,
+    steps: Vec<Step>,
+    context: Context,
+}
+
+impl<R: CommandRunner> WorkflowBuilder<R> {
     pub const fn new(
         workflow_id: Uuid,
         event_tx: mpsc::Sender<Event>,
-        initial_context: HashMap<String, String>,
+        runner: R,
+        git_root: PathBuf,
+        context: Context,
     ) -> Self {
         Self {
             id: workflow_id,
             event_tx,
+            runner,
+            git_root,
             steps: Vec::new(),
-            initial_context,
+            context,
         }
     }
 
@@ -36,26 +53,35 @@ impl WorkflowBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<Workflow> {
+    pub async fn build(self) -> Result<Workflow<R>, CoreError> {
+        let static_steps = self.steps
+            .iter()
+            .map(|step| step.static_info())
+            .collect();
+        let metadata = WorkflowMetadata::None;
+        
         self.event_tx
             .send(Event::WorkflowPlanReady(
-                self.steps.clone(),
-                WorkflowMetadata::None,
+                static_steps,
+                metadata,
             ))
-            .await?;
+            .await
+            .map_err(|_| CoreError::EventChannelClosed)?;
 
         let state = PersistentWorkflowState {
             workflow_id: self.id,
             current_step: 0,
-            steps: self.steps.clone(),
-            context: self.initial_context,
+            steps: self.steps,
+            context: self.context,
             status: "Running".to_string(),
         };
 
         Ok(Workflow {
             id: self.id,
             event_tx: self.event_tx,
+            runner: Arc::new(self.runner),
             state,
+            git_root: self.git_root,
         })
     }
 }
@@ -63,7 +89,6 @@ impl WorkflowBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentorii_contracts::command::SentoriiCommand;
     use sentorii_contracts::step::Category;
 
     #[test]

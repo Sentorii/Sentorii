@@ -1,39 +1,11 @@
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
-use sentorii_contracts::command::CommandStep;
 use sentorii_contracts::event::{Event, FailureInfo, StepStatus, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
 use sentorii_contracts::step::Step;
-use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
-use uuid::Uuid;
-
-#[derive(Debug)]
-pub struct Workflow<R: CommandRunner> {
-    id: Uuid,
-    event_tx: mpsc::Sender<Event>,
-    runner: Arc<R>,
-    state: PersistentWorkflowState,
-    git_root: PathBuf,
-}
+use crate::workflow::builder::Workflow;
 
 impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
-    pub fn new(
-        id: Uuid,
-        event_tx: mpsc::Sender<Event>,
-        runner: R,
-        state: PersistentWorkflowState,
-        git_root: PathBuf,
-    ) -> Self {
-        Self {
-            id,
-            event_tx,
-            runner: Arc::new(runner),
-            state,
-            git_root,
-        }
-    }
-
     pub async fn run(mut self) -> Result<()> {
         let execution_result = async {
             let steps = self.state.steps.clone();
@@ -42,8 +14,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
                 self.state.current_step = index;
 
                 save_state(&self.git_root, &self.state)
-                    .await
-                    .context("Failed to save state before step execution")?;
+                    .await;
 
                 self.execute_step(index as u32, step)
                     .await
