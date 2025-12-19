@@ -1,15 +1,19 @@
 //! Defines different versions of steps.
 
-use crate::event::{RecoveryAction, RevertAction, StaticStepInfo};
 use crate::command::Command;
 use crate::command::ExecutableCommand;
-use crate::error::CommandBuildError;
+use crate::command::{
+    GitBranchDeleteCommand, GitCheckOutCommand, GitCheckoutNewBranchCommand, GitMergeNoFfCommand,
+    GitPullCommand, GitPushCommand, GitPushTagsCommand, GitStatusCheckCommand, GitTagCommand,
+    PluginExecuteCommand,
+};
 use crate::context::Context;
-use crate::command::{GitBranchDeleteCommand, GitCheckOutCommand, GitCheckoutNewBranchCommand, GitMergeNoFfCommand, GitPullCommand, GitPushCommand, GitPushTagsCommand, GitStatusCheckCommand, GitTagCommand, PluginExecuteCommand};
+use crate::context::ValueSource;
+use crate::error::CommandBuildError;
+use crate::event::{RecoveryAction, RevertAction, StaticStepInfo};
+use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use paste::paste;
-use crate::context::ValueSource;
 
 /// A high-level, UI-friendly category for a command step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,8 +145,8 @@ command_step!(
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{ContextKey, ValueSource};
     use super::*;
+    use crate::context::{ContextKey, ValueSource};
 
     #[test]
     fn test_git_status_check_constructor() {
@@ -163,9 +167,11 @@ mod tests {
     #[test]
     fn test_git_checkout_new_branch_constructor() {
         let actual = git_checkout_new_branch("test");
-        let expected = Step::Command(CommandStep::GitCheckoutNewBranch(GitCheckoutNewBranchCommand {
-            branch: ValueSource::Literal("test".to_string()),
-        }));
+        let expected = Step::Command(CommandStep::GitCheckoutNewBranch(
+            GitCheckoutNewBranchCommand {
+                branch: ValueSource::Literal("test".to_string()),
+            },
+        ));
         assert_eq!(actual, expected);
     }
 

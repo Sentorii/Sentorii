@@ -25,17 +25,15 @@ pub enum CommandExecutionError {
 #[async_trait]
 pub trait CommandRunner {
     /// Executes the given command.
-    async fn execute(
-        &self,
-        command: CommandStep,
-    ) -> Result<ExecutionStatus, CommandExecutionError>;
+    async fn execute(&self, command: CommandStep)
+    -> Result<ExecutionStatus, CommandExecutionError>;
 }
 
 // --- Mock Implementation for Testing ---
 
+use crate::step::CommandStep;
 #[cfg(feature = "test_utils")]
 use std::sync::{Arc, Mutex};
-use crate::step::CommandStep;
 
 /// A mock implementation of the `CommandRunner` trait for use in tests.
 #[cfg(feature = "test_utils")]
@@ -71,9 +69,9 @@ impl CommandRunner for MockCommandRunner {
 #[cfg(test)]
 #[cfg(feature = "test_utils")]
 mod tests {
+    use super::*;
     use crate::command::{GitCheckOutCommand, GitStatusCheckCommand};
     use crate::context::ValueSource;
-    use super::*;
 
     #[tokio::test]
     async fn test_mock_runner_success() {
@@ -102,7 +100,9 @@ mod tests {
             ..Default::default()
         };
 
-        let status_ok = runner.execute(CommandStep::GitStatusCheck(GitStatusCheckCommand)).await;
+        let status_ok = runner
+            .execute(CommandStep::GitStatusCheck(GitStatusCheckCommand))
+            .await;
         assert_eq!(status_ok, Ok(ExecutionStatus::Success));
 
         let status_fail = runner
@@ -132,7 +132,9 @@ mod tests {
 
         assert!(handle.join().is_err(), "Thread did not panic as expected.");
 
-        let result = runner.execute(CommandStep::GitStatusCheck(GitStatusCheckCommand)).await;
+        let result = runner
+            .execute(CommandStep::GitStatusCheck(GitStatusCheckCommand))
+            .await;
 
         assert_eq!(result, Err(CommandExecutionError::LockPoisoned));
     }

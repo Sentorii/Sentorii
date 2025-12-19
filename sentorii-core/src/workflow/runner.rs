@@ -1,9 +1,9 @@
+use crate::workflow::builder::Workflow;
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
 use sentorii_contracts::event::{Event, FailureInfo, StepStatus, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
 use sentorii_contracts::step::Step;
 use tokio::sync::{mpsc, oneshot};
-use crate::workflow::builder::Workflow;
 
 impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     pub async fn run(mut self) -> Result<()> {
@@ -13,8 +13,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             for (index, step) in steps.iter().enumerate() {
                 self.state.current_step = index;
 
-                save_state(&self.git_root, &self.state)
-                    .await;
+                save_state(&self.git_root, &self.state).await;
 
                 self.execute_step(index as u32, step)
                     .await

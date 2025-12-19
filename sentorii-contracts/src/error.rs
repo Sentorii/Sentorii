@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::context::ContextKey;
+use thiserror::Error;
 
 /// An error that can occur while translating a high-level `CommandStep`
 /// into a low-level `ExecutableCommand`.

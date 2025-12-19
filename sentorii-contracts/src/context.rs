@@ -1,7 +1,7 @@
-use std::fmt;
 use crate::error::CommandBuildError;
 use paste::paste;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 pub trait FromConfig {
     fn into_context(self) -> Context;
@@ -126,13 +126,11 @@ macro_rules! context {
     };
 }
 
-context!(
-    Context {
-        main: String,
-        develop: String,
-        remote: String,
-        feature_branch: String,
-        prefix_feature: String,
-        tag: String
-    }
-);
+context!(Context {
+    main: String,
+    develop: String,
+    remote: String,
+    feature_branch: String,
+    prefix_feature: String,
+    tag: String
+});

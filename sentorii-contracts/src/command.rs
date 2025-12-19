@@ -5,7 +5,7 @@ use crate::context::{Context, ValueSource};
 use crate::error::CommandBuildError;
 use crate::event::{RecoveryAction, RevertAction};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug};
+use std::fmt::Debug;
 
 /// A low-level, executable command ready to be executed by a `CommandRunner`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,8 +37,7 @@ impl ExecutableCommand {
         }
     }
 
-    pub fn command(&self) -> String
-    {
+    pub fn command(&self) -> String {
         format!("{} {}", self.program, self.args.join(" "))
     }
 }
@@ -94,9 +93,7 @@ impl Command for GitCheckOutCommand {
             Ok(resolved_branch) => {
                 format!("Check out branch {resolved_branch}")
             }
-            Err(_) => {
-                self.static_description()
-            }
+            Err(_) => self.static_description(),
         }
     }
     fn category(&self) -> Category {
@@ -122,9 +119,7 @@ impl Command for GitCheckoutNewBranchCommand {
             Ok(resolved_branch) => {
                 format!("Checkout new branch {resolved_branch}")
             }
-            Err(_) => {
-                self.static_description()
-            }
+            Err(_) => self.static_description(),
         }
     }
     fn category(&self) -> Category {
@@ -160,7 +155,11 @@ impl Command for GitPullCommand {
     fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
         let resolved_remote = self.remote.resolve(context)?;
         let resolved_branch = self.branch.resolve(context)?;
-        Ok(ExecutableCommand::git(["pull", &resolved_remote, &resolved_branch]))
+        Ok(ExecutableCommand::git([
+            "pull",
+            &resolved_remote,
+            &resolved_branch,
+        ]))
     }
 }
 
@@ -178,9 +177,7 @@ impl Command for GitMergeNoFfCommand {
             Ok(resolved_branch) => {
                 format!("Merge branch {resolved_branch}")
             }
-            Err(_) => {
-                self.static_description()
-            }
+            Err(_) => self.static_description(),
         }
     }
     fn category(&self) -> Category {
@@ -188,7 +185,11 @@ impl Command for GitMergeNoFfCommand {
     }
     fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
         let resolved_branch = self.branch.resolve(context)?;
-        Ok(ExecutableCommand::git(["merge", "--no-ff", &resolved_branch]))
+        Ok(ExecutableCommand::git([
+            "merge",
+            "--no-ff",
+            &resolved_branch,
+        ]))
     }
 }
 
@@ -216,7 +217,11 @@ impl Command for GitPushCommand {
     fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
         let resolved_remote = self.remote.resolve(context)?;
         let resolved_branch = self.branch.resolve(context)?;
-        Ok(ExecutableCommand::git(["push", &resolved_remote, &resolved_branch]))
+        Ok(ExecutableCommand::git([
+            "push",
+            &resolved_remote,
+            &resolved_branch,
+        ]))
     }
 }
 
@@ -234,9 +239,7 @@ impl Command for GitTagCommand {
             Ok(resolved_tag) => {
                 format!("Tag {resolved_tag}")
             }
-            Err(_) => {
-                self.static_description()
-            }
+            Err(_) => self.static_description(),
         }
     }
     fn category(&self) -> Category {
@@ -277,9 +280,7 @@ impl Command for GitBranchDeleteCommand {
             Ok(resolved_branch) => {
                 format!("Delete branch {resolved_branch}")
             }
-            Err(_) => {
-                self.static_description()
-            }
+            Err(_) => self.static_description(),
         }
     }
     fn category(&self) -> Category {
@@ -311,13 +312,16 @@ impl Command for PluginExecuteCommand {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{ContextBuilder, ContextKey};
     use super::*;
+    use crate::context::{ContextBuilder, ContextKey};
 
     #[test]
     fn test_git_status_check_executable() {
         let context = ContextBuilder::new().build();
-        let actual = GitStatusCheckCommand.to_executable(&context).unwrap().command();
+        let actual = GitStatusCheckCommand
+            .to_executable(&context)
+            .unwrap()
+            .command();
         let expected = "git status --porcelain";
         assert_eq!(actual, expected);
     }
@@ -325,7 +329,7 @@ mod tests {
     #[test]
     fn test_git_checkout_executable() {
         let command = GitCheckOutCommand {
-            branch: ValueSource::FromContext(ContextKey::Develop)
+            branch: ValueSource::FromContext(ContextKey::Develop),
         };
         let context = ContextBuilder::new().with_develop("test").build();
         let executable = command.to_executable(&context).unwrap();
@@ -337,9 +341,11 @@ mod tests {
     #[test]
     fn test_git_checkout_new_branch_executable() {
         let command = GitCheckoutNewBranchCommand {
-            branch: ValueSource::FromContext(ContextKey::FeatureBranch)
+            branch: ValueSource::FromContext(ContextKey::FeatureBranch),
         };
-        let context = ContextBuilder::new().with_feature_branch("feature/awesome-feature").build();
+        let context = ContextBuilder::new()
+            .with_feature_branch("feature/awesome-feature")
+            .build();
         let executable = command.to_executable(&context).unwrap();
         let actual = executable.command();
         let expected = "git checkout -b feature/awesome-feature";
@@ -350,9 +356,12 @@ mod tests {
     fn test_git_pull_executable() {
         let command = GitPullCommand {
             remote: ValueSource::FromContext(ContextKey::Remote),
-            branch: ValueSource::FromContext(ContextKey::FeatureBranch)
+            branch: ValueSource::FromContext(ContextKey::FeatureBranch),
         };
-        let context = ContextBuilder::new().with_remote("origin").with_feature_branch("feature/awesome-feature").build();
+        let context = ContextBuilder::new()
+            .with_remote("origin")
+            .with_feature_branch("feature/awesome-feature")
+            .build();
         let executable = command.to_executable(&context).unwrap();
         let actual = executable.command();
         let expected = "git pull origin feature/awesome-feature";
@@ -362,9 +371,11 @@ mod tests {
     #[test]
     fn test_git_merge_executable() {
         let command = GitMergeNoFfCommand {
-            branch: ValueSource::FromContext(ContextKey::FeatureBranch)
+            branch: ValueSource::FromContext(ContextKey::FeatureBranch),
         };
-        let context = ContextBuilder::new().with_feature_branch("feature/awesome-feature").build();
+        let context = ContextBuilder::new()
+            .with_feature_branch("feature/awesome-feature")
+            .build();
         let executable = command.to_executable(&context).unwrap();
         let actual = executable.command();
         let expected = "git merge --no-ff feature/awesome-feature";
@@ -375,9 +386,12 @@ mod tests {
     fn test_git_push_executable() {
         let command = GitPushCommand {
             remote: ValueSource::FromContext(ContextKey::Remote),
-            branch: ValueSource::FromContext(ContextKey::FeatureBranch)
+            branch: ValueSource::FromContext(ContextKey::FeatureBranch),
         };
-        let context = ContextBuilder::new().with_remote("origin").with_feature_branch("feature/awesome-feature").build();
+        let context = ContextBuilder::new()
+            .with_remote("origin")
+            .with_feature_branch("feature/awesome-feature")
+            .build();
         let executable = command.to_executable(&context).unwrap();
         let actual = executable.command();
         let expected = "git push origin feature/awesome-feature";
@@ -387,7 +401,7 @@ mod tests {
     #[test]
     fn test_git_tag_executable() {
         let command = GitTagCommand {
-            tag: ValueSource::FromContext(ContextKey::Tag)
+            tag: ValueSource::FromContext(ContextKey::Tag),
         };
         let context = ContextBuilder::new().with_tag("v1").build();
         let executable = command.to_executable(&context).unwrap();
@@ -399,9 +413,11 @@ mod tests {
     #[test]
     fn test_git_delete_branch_executable() {
         let command = GitBranchDeleteCommand {
-            branch: ValueSource::FromContext(ContextKey::FeatureBranch)
+            branch: ValueSource::FromContext(ContextKey::FeatureBranch),
         };
-        let context = ContextBuilder::new().with_feature_branch("feature/awesome-feature").build();
+        let context = ContextBuilder::new()
+            .with_feature_branch("feature/awesome-feature")
+            .build();
         let executable = command.to_executable(&context).unwrap();
         let actual = executable.command();
         let expected = "git branch -d feature/awesome-feature";
@@ -424,7 +440,10 @@ mod tests {
     #[test]
     fn test_git_push_tags_executable() {
         let context = ContextBuilder::new().build();
-        let actual = GitPushTagsCommand.to_executable(&context).unwrap().command();
+        let actual = GitPushTagsCommand
+            .to_executable(&context)
+            .unwrap()
+            .command();
         let expected = "git push --tags";
         assert_eq!(actual, expected);
     }

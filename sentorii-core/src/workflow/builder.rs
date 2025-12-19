@@ -1,15 +1,15 @@
 //! A builder for constructing a `Workflow` object and emitting initial events.
 
+use crate::error::CoreError;
 use crate::workflow::state::PersistentWorkflowState;
+use sentorii_contracts::context::Context;
 use sentorii_contracts::event::{Event, WorkflowMetadata};
+use sentorii_contracts::runner::CommandRunner;
 use sentorii_contracts::step::Step;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
-use sentorii_contracts::context::Context;
-use sentorii_contracts::runner::CommandRunner;
-use crate::error::CoreError;
 
 #[derive(Debug)]
 pub struct Workflow<R: CommandRunner> {
@@ -54,17 +54,11 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
     }
 
     pub async fn build(self) -> Result<Workflow<R>, CoreError> {
-        let static_steps = self.steps
-            .iter()
-            .map(|step| step.static_info())
-            .collect();
+        let static_steps = self.steps.iter().map(|step| step.static_info()).collect();
         let metadata = WorkflowMetadata::None;
-        
+
         self.event_tx
-            .send(Event::WorkflowPlanReady(
-                static_steps,
-                metadata,
-            ))
+            .send(Event::WorkflowPlanReady(static_steps, metadata))
             .await
             .map_err(|_| CoreError::EventChannelClosed)?;
 

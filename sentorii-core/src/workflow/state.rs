@@ -5,12 +5,12 @@
 //! directory of the current Git repository.
 
 use crate::error::CoreError;
+use sentorii_contracts::context::Context;
 use sentorii_contracts::step::Step;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs::{create_dir_all, read_to_string, remove_file, rename, write};
 use uuid::Uuid;
-use sentorii_contracts::context::Context;
 
 const STATE_FILENAME: &str = "workflow-state.json";
 

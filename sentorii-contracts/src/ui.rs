@@ -1,8 +1,8 @@
 //! Defines the shared, UI-agnostic data structures for UI state.
 
 use crate::event::FailureInfo;
-use serde::{Deserialize, Serialize};
 use crate::step::CommandStep;
+use serde::{Deserialize, Serialize};
 
 /// The status of a single step as viewed by the UI.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
