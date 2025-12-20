@@ -3,10 +3,6 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub trait FromConfig {
-    fn into_context(self) -> Context;
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueSource {
     Literal(String),
