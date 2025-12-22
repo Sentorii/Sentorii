@@ -37,6 +37,7 @@ impl ExecutableCommand {
         }
     }
 
+    #[must_use]
     pub fn command(&self) -> String {
         format!("{} {}", self.program, self.args.join(" "))
     }
@@ -53,6 +54,8 @@ pub trait Command: Debug {
     /// Provides a category for UI grouping and icons.
     fn category(&self) -> Category;
     /// Translates the step into a low-level command, resolving placeholders.
+    /// # Errors
+    /// Can fail to build the command `CommandBuildError`.
     fn to_executable(&self, context: &Context) -> Result<ExecutableCommand, CommandBuildError>;
     /// Provides a list of possible actions to revert this step's effects.
     fn possible_reverts(&self) -> Vec<RevertAction> {
@@ -89,12 +92,10 @@ impl Command for GitCheckOutCommand {
         "Check out new branch".to_string()
     }
     fn resolved_description(&self, context: &Context) -> String {
-        match self.branch.resolve(context) {
-            Ok(resolved_branch) => {
-                format!("Check out branch {resolved_branch}")
-            }
-            Err(_) => self.static_description(),
-        }
+        self.branch.resolve(context).map_or_else(
+            |_| self.static_description(),
+            |resolved_branch| format!("Checkout branch {resolved_branch}"),
+        )
     }
     fn category(&self) -> Category {
         Category::Checkout
@@ -115,12 +116,10 @@ impl Command for GitCheckoutNewBranchCommand {
         "Checkout new branch".to_string()
     }
     fn resolved_description(&self, context: &Context) -> String {
-        match self.branch.resolve(context) {
-            Ok(resolved_branch) => {
-                format!("Checkout new branch {resolved_branch}")
-            }
-            Err(_) => self.static_description(),
-        }
+        self.branch.resolve(context).map_or_else(
+            |_| self.static_description(),
+            |resolved_branch| format!("Checkout new branch {resolved_branch}"),
+        )
     }
     fn category(&self) -> Category {
         Category::Checkout
@@ -173,12 +172,10 @@ impl Command for GitMergeNoFfCommand {
         "Merge branches".to_string()
     }
     fn resolved_description(&self, context: &Context) -> String {
-        match self.branch.resolve(context) {
-            Ok(resolved_branch) => {
-                format!("Merge branch {resolved_branch}")
-            }
-            Err(_) => self.static_description(),
-        }
+        self.branch.resolve(context).map_or_else(
+            |_| self.static_description(),
+            |resolved_branch| format!("Merge branch {resolved_branch}"),
+        )
     }
     fn category(&self) -> Category {
         Category::Merge
@@ -235,12 +232,10 @@ impl Command for GitTagCommand {
         "Create a new tag".to_string()
     }
     fn resolved_description(&self, context: &Context) -> String {
-        match self.tag.resolve(context) {
-            Ok(resolved_tag) => {
-                format!("Tag {resolved_tag}")
-            }
-            Err(_) => self.static_description(),
-        }
+        self.tag.resolve(context).map_or_else(
+            |_| self.static_description(),
+            |resolved_tag| format!("Tag {resolved_tag}"),
+        )
     }
     fn category(&self) -> Category {
         Category::Tag
@@ -276,12 +271,10 @@ impl Command for GitBranchDeleteCommand {
         "Delete branch".to_string()
     }
     fn resolved_description(&self, context: &Context) -> String {
-        match self.branch.resolve(context) {
-            Ok(resolved_branch) => {
-                format!("Delete branch {resolved_branch}")
-            }
-            Err(_) => self.static_description(),
-        }
+        self.branch.resolve(context).map_or_else(
+            |_| self.static_description(),
+            |resolved_branch| format!("Delete branch {resolved_branch}"),
+        )
     }
     fn category(&self) -> Category {
         Category::DeleteBranch
@@ -306,11 +299,12 @@ impl Command for PluginExecuteCommand {
         Category::Plugin
     }
     fn to_executable(&self, _context: &Context) -> Result<ExecutableCommand, CommandBuildError> {
-        Ok(ExecutableCommand::new(&*self.executable, self.args.clone()))
+        Ok(ExecutableCommand::new(&self.executable, self.args.clone()))
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::context::{ContextBuilder, ContextKey};

@@ -90,6 +90,7 @@ mod tests {
 #[allow(clippy::unwrap_used)]
 mod integration_tests {
     use super::*;
+    use sentorii_contracts::context::ContextBuilder;
     use tempfile::TempDir;
 
     fn create_dummy_state() -> PersistentWorkflowState {
@@ -97,7 +98,7 @@ mod integration_tests {
             workflow_id: Uuid::new_v4(),
             current_step: 1,
             steps: vec![],
-            context: HashMap::from([("key".to_string(), "value".to_string())]),
+            context: ContextBuilder::new().with_develop("dev").build(),
             status: "Running".to_string(),
         }
     }

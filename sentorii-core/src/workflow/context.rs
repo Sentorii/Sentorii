@@ -1,5 +1,4 @@
 use sentorii_config::Config;
-use sentorii_contracts::command::Command;
 use sentorii_contracts::context::{Context, ContextBuilder};
 
 pub trait ContextProvider {

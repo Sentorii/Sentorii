@@ -1,6 +1,8 @@
 //! A builder for constructing a `Workflow` object and emitting initial events.
 
 use crate::error::CoreError;
+use crate::error::InvalidStateError::EventChannelClosed;
+use crate::workflow::runner::Workflow;
 use crate::workflow::state::PersistentWorkflowState;
 use sentorii_contracts::context::Context;
 use sentorii_contracts::event::{Event, WorkflowMetadata};
@@ -10,15 +12,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
-
-#[derive(Debug)]
-pub struct Workflow<R: CommandRunner> {
-    id: Uuid,
-    event_tx: mpsc::Sender<Event>,
-    runner: Arc<R>,
-    state: PersistentWorkflowState,
-    git_root: PathBuf,
-}
 
 #[derive(Debug)]
 pub struct WorkflowBuilder<R: CommandRunner> {
@@ -54,13 +47,13 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
     }
 
     pub async fn build(self) -> Result<Workflow<R>, CoreError> {
-        let static_steps = self.steps.iter().map(|step| step.static_info()).collect();
+        let static_steps = self.steps.iter().map(Step::static_info).collect();
         let metadata = WorkflowMetadata::None;
 
         self.event_tx
             .send(Event::WorkflowPlanReady(static_steps, metadata))
             .await
-            .map_err(|_| CoreError::EventChannelClosed)?;
+            .map_err(|_| EventChannelClosed)?;
 
         let state = PersistentWorkflowState {
             workflow_id: self.id,
@@ -81,20 +74,23 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use sentorii_contracts::step::Category;
+    use sentorii_contracts::context::ContextBuilder;
+    use sentorii_contracts::runner::MockCommandRunner;
+    use sentorii_contracts::step::git_pull;
 
     #[test]
     fn test_builder_accumulates_steps_correctly() {
         let (tx, _rx) = mpsc::channel(1);
-        let builder = WorkflowBuilder::new(Uuid::new_v4(), tx, HashMap::new());
+        let workflow_id = Uuid::new_v4();
+        let runner = MockCommandRunner::default();
+        let git_root = PathBuf::from("git_root");
+        let context = ContextBuilder::new().build();
+        let builder = WorkflowBuilder::new(workflow_id, tx, runner, git_root, context);
 
-        let step1 = Step::Command(CommandStep {
-            category: Category::Pull,
-            command: SentoriiCommand::git_pull("origin", "develop"),
-            display_text: "git pull".to_string(),
-        });
+        let step1 = git_pull("origin", "new-branch");
 
         let final_builder = builder.step(step1.clone());
         assert_eq!(final_builder.steps.len(), 1);
@@ -105,15 +101,15 @@ mod tests {
     async fn test_builder_emits_events_correctly_on_build() {
         let (event_tx, mut event_rx) = mpsc::channel(10);
         let workflow_id = Uuid::new_v4();
-        let step1 = Step::Command(CommandStep {
-            category: Category::Pull,
-            command: SentoriiCommand::git_pull("origin", "develop"),
-            display_text: "git pull".to_string(),
-        });
+        let runner = MockCommandRunner::default();
+        let git_root = PathBuf::from("git_root");
+        let context = ContextBuilder::new().build();
+
+        let step1 = git_pull("origin", "new-branch");
 
         let steps = vec![step1.clone()];
 
-        let workflow = WorkflowBuilder::new(workflow_id, event_tx, HashMap::new())
+        let workflow = WorkflowBuilder::new(workflow_id, event_tx, runner, git_root, context)
             .step(step1.clone())
             .build()
             .await
@@ -121,5 +117,6 @@ mod tests {
 
         let event1 = event_rx.recv().await.unwrap();
         assert!(matches!(event1, Event::WorkflowPlanReady(..)));
+        assert_eq!(steps, workflow.state.steps);
     }
 }

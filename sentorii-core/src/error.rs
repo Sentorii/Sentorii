@@ -1,7 +1,8 @@
 //! Custom error types for the sentorii-core crate.
 
-use sentorii_contracts::error::CommandBuildError;
+use sentorii_contracts::error::{CommandBuildError, CommandExecutionError};
 use thiserror::Error;
+use tokio::task::JoinError;
 
 /// The primary error type for operations within the sentorii-core crate.
 #[derive(Debug, Error)]
@@ -18,14 +19,25 @@ pub enum CoreError {
     CommandBuildFailed(#[from] CommandBuildError),
 
     #[error("Command execution failed: {0}")]
-    CommandFailed(String),
-
-    #[error("The UI failed to provide a required input")]
-    InputChannelClosed,
-
-    #[error("The event channel was closed prematurely")]
-    EventChannelClosed,
+    CommandExecutionFailed(#[from] CommandExecutionError),
 
     #[error("Workflow engine state is invalid: {0}")]
-    InvalidState(String),
+    InvalidState(#[from] InvalidStateError),
+}
+
+/// An error related to the engine's internal state or communication channels.
+#[derive(Debug, Error)]
+pub enum InvalidStateError {
+    #[error("The event channel was closed unexpectedly. The UI may have disconnected.")]
+    EventChannelClosed,
+    #[error("The UI failed to provide a required input; the response channel was closed.")]
+    InputChannelClosed,
+    #[error("Attempted to operate on a workflow that is not in a runnable state (status: {0})")]
+    NotRunnable(String),
+}
+
+impl From<JoinError> for CoreError {
+    fn from(_: JoinError) -> Self {
+        Self::CommandExecutionFailed(CommandExecutionError::TaskPanic)
+    }
 }

@@ -14,6 +14,7 @@ serde = { version = "1.0.228", features = ["derive"]}
 serde_json = "1.0.145"
 uuid = { version = "1.19.0", features = ["v4", "serde"] }
 log = "0.4.29"
+async-trait = "0.1.89"
 
 [features]
 test-integration = []

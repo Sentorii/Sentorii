@@ -11,17 +11,17 @@ pub enum ValueSource {
 
 impl From<&str> for ValueSource {
     fn from(s: &str) -> Self {
-        ValueSource::Literal(s.to_string())
+        Self::Literal(s.to_string())
     }
 }
 impl From<String> for ValueSource {
     fn from(s: String) -> Self {
-        ValueSource::Literal(s)
+        Self::Literal(s)
     }
 }
 impl From<ContextKey> for ValueSource {
     fn from(s: ContextKey) -> Self {
-        ValueSource::FromContext(s)
+        Self::FromContext(s)
     }
 }
 
@@ -71,6 +71,8 @@ macro_rules! context {
         impl Context {
             paste! {
                 $(
+                    /// # Errors
+                    /// Can fail on missing `ContextKey`.
                     pub fn [<get_ $field_name>](&self) -> Result<&$field_type, CommandBuildError> {
                         self.$field_name.as_ref().ok_or(CommandBuildError::MissingContextKey(ContextKey::[< $field_name:camel >]))
                     }
@@ -90,6 +92,7 @@ macro_rules! context {
             pub fn build(self) -> Context { self.context }
             paste! {
                 $(
+                    #[must_use]
                     pub fn [<with_ $field_name>](mut self, value: impl Into<$field_type>) -> Self {
                         self.context.[<set_ $field_name>](value);
                         self
@@ -101,7 +104,8 @@ macro_rules! context {
         // --- Part E: The `ValueSource::resolve` Logic ---
         impl ValueSource {
             /// Resolves the `ValueSource` to a concrete `String` using the provided context.
-            /// This implementation is auto-generated to be perfectly in sync with the `Context`.
+            /// # Errors
+            /// Can fail to resolve placeholders from context with `CommandBuildError`.
             pub fn resolve(&self, context: &Context) -> Result<String, CommandBuildError> {
                 match self {
                     ValueSource::Literal(s) => Ok(s.clone()),

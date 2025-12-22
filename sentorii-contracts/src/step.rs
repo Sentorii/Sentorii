@@ -43,9 +43,9 @@ pub enum Step {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestStringInputTemplate {
     /// A unique key to identify this input request.
-    key: String,
+    pub key: String,
     /// The message to display to the user.
-    prompt: String,
+    pub prompt: String,
     /// An optional default value for the input.
     default_value: Option<String>,
 }
@@ -63,16 +63,26 @@ pub struct RequestSelectInputTemplate {
 }
 
 impl Step {
+    #[must_use]
     pub fn static_info(&self) -> StaticStepInfo {
         let (description, category) = match self {
-            Step::Command(cmd) => (cmd.static_description(), cmd.category()),
-            Step::RequestStringInput(req) => (req.prompt.clone(), Category::UserInteraction),
-            Step::RequestSelectInput(req) => (req.prompt.clone(), Category::UserInteraction),
+            Self::Command(cmd) => (cmd.static_description(), cmd.category()),
+            Self::RequestStringInput(req) => (req.prompt.clone(), Category::UserInteraction),
+            Self::RequestSelectInput(req) => (req.prompt.clone(), Category::UserInteraction),
         };
 
         StaticStepInfo {
             description,
             category,
+        }
+    }
+
+    #[must_use]
+    pub fn resolved_description(&self, context: &Context) -> String {
+        match self {
+            Self::Command(cmd) => cmd.resolved_description(context),
+            Self::RequestStringInput(req) => req.prompt.clone(),
+            Self::RequestSelectInput(req) => req.prompt.clone(),
         }
     }
 }
@@ -115,17 +125,39 @@ macro_rules! command_step {
             }
         }
 
-        paste! {
-            $(
+        $(
+            command_step!(@generate_helper
                 $(#[$variant_meta])*
-                pub fn $helper_name( $( $param_name: $param_type ),* ) -> Step {
-                    Step::Command(CommandStep::$variant($command_type {
-                        $(
-                            $param_name: $param_name.into(),
-                        )*
-                    }))
-                }
-            )*
+                $helper_name( $( $param_name: $param_type ),* ) => $variant($command_type)
+            );
+        )*
+    };
+
+    (@generate_helper
+        $(#[$variant_meta:meta])*
+        $helper_name:ident () => $variant:ident($command_type:ty)
+    ) =>  {
+        paste! {
+            $(#[$variant_meta])*
+            pub const fn $helper_name() -> Step {
+                Step::Command(CommandStep::$variant($command_type {}))
+            }
+        }
+    };
+
+    (@generate_helper
+        $(#[$variant_meta:meta])*
+        $helper_name:ident ( $( $param_name:ident: $param_type:ty ),+ ) => $variant:ident($command_type:ty)
+    ) => {
+        paste! {
+            $(#[$variant_meta])*
+            pub fn $helper_name( $( $param_name: $param_type ),* ) -> Step {
+                Step::Command(CommandStep::$variant($command_type {
+                    $(
+                        $param_name: $param_name.into(),
+                    )*
+                }))
+            }
         }
     };
 }

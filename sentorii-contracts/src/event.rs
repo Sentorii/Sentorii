@@ -32,7 +32,7 @@ pub struct FailureInfo {
     pub error_message: String,
     pub failed_command: CommandStep,
     pub possible_reverts: Vec<RevertAction>,
-    pub possible_recoveries: Vec<RevertAction>,
+    pub possible_recoveries: Vec<RecoveryAction>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

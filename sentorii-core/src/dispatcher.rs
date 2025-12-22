@@ -3,6 +3,7 @@
 //! This module is responsible for listening for incoming `WorkflowRequest` messages
 //! and ensuring that only one workflow is executed at a time.
 
+use crate::error::CoreError;
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::fmt::{Display, Formatter};
@@ -112,7 +113,7 @@ async fn dispatch_workflow(
     _request: WorkflowRequest,
     _event_tx: mpsc::Sender<Event>,
     _workflow_id: Uuid,
-) -> Result<()> {
+) -> Result<(), CoreError> {
     log::info!("Dispatching workflow...");
     Ok(())
 }
