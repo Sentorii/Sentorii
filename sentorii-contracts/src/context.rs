@@ -134,3 +134,45 @@ context!(Context {
     prefix_feature: String,
     tag: String
 });
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_value_source_from_str() {
+        let str = "hello";
+        let value = ValueSource::from(str);
+        assert_eq!(value, ValueSource::Literal(str.into()));
+    }
+
+    #[test]
+    fn test_value_source_from_string() {
+        let str = "hello".to_string();
+        let value = ValueSource::from(str.clone());
+        assert_eq!(value, ValueSource::Literal(str.into()));
+    }
+
+    #[test]
+    fn test_value_source_from_context() {
+        let key = ContextKey::Develop;
+        let value = ValueSource::from(key.clone());
+        assert_eq!(value, ValueSource::FromContext(key));
+    }
+
+    #[test]
+    fn test_get_context() {
+        let value = "test";
+        let context = ContextBuilder::new().with_develop(value).build();
+        assert_eq!(value, context.get_develop().unwrap());
+    }
+
+    #[test]
+    fn test_set_context() {
+        let value = "test";
+        let mut context = ContextBuilder::new().build();
+        context.set_develop(value);
+        assert_eq!(value, context.get_develop().unwrap());
+    }
+}

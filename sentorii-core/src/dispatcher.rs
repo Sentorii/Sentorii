@@ -3,7 +3,7 @@
 //! This module is responsible for listening for incoming `WorkflowRequest` messages
 //! and ensuring that only one workflow is executed at a time.
 
-use crate::error::CoreError;
+use crate::error::{CoreError, InvalidStateError};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::fmt::{Display, Formatter};
@@ -11,6 +11,12 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
+use sentorii_config::load_config;
+use sentorii_contracts::context::{ContextBuilder, ContextKey, ValueSource};
+use sentorii_contracts::step::{git_checkout, git_checkout_new_branch, git_pull};
+use crate::git::executor::CommandExecutor;
+use crate::workflow::builder::WorkflowBuilder;
+use crate::workflow::context::ContextProvider;
 
 /// Represents the live, in-memory state of the engine.
 enum EngineState {
@@ -110,10 +116,35 @@ fn spawn_workflow_execution_task(
 }
 
 async fn dispatch_workflow(
-    _request: WorkflowRequest,
-    _event_tx: mpsc::Sender<Event>,
-    _workflow_id: Uuid,
+    request: WorkflowRequest,
+    event_tx: mpsc::Sender<Event>,
+    workflow_id: Uuid,
 ) -> Result<(), CoreError> {
-    log::info!("Dispatching workflow...");
+    let git_root = resolve_git_root().await?;
+    let runner = CommandExecutor::new(event_tx.clone());
+    
+    let config = load_config()?;
+    let mut context = config.to_context();
+    
+    let workflow = match request {
+        WorkflowRequest::StartFeature { branch_name } => {
+            WorkflowBuilder::new(workflow_id, event_tx, runner, git_root, context)
+                .step(git_pull("origin", "develop"))
+                .step(git_checkout("develop"))
+                .step(git_checkout_new_branch(ValueSource::FromContext(ContextKey::FeatureBranch)))
+                .build()
+                .await?
+        }
+        _ => {
+            return Err(CoreError::InvalidState(
+                InvalidStateError::NotRunnable(
+                    "Workflow request type is not yet implemented.".to_string()
+                )
+            ));
+        }
+    };
+    
+    workflow.run().await;
+    
     Ok(())
 }

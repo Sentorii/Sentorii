@@ -3,6 +3,7 @@
 use sentorii_contracts::error::{CommandBuildError, CommandExecutionError};
 use thiserror::Error;
 use tokio::task::JoinError;
+use sentorii_config::ConfigError;
 
 /// The primary error type for operations within the sentorii-core crate.
 #[derive(Debug, Error)]
@@ -23,6 +24,9 @@ pub enum CoreError {
 
     #[error("Workflow engine state is invalid: {0}")]
     InvalidState(#[from] InvalidStateError),
+    
+    #[error("Config error: {0}")]
+    ConfigError(#[from] ConfigError),
 }
 
 /// An error related to the engine's internal state or communication channels.
