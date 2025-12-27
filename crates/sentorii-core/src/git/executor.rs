@@ -116,10 +116,10 @@ impl CommandRunner for CommandExecutor {
 }
 
 #[cfg(test)]
+#[cfg(feature = "test-integration")]
 mod tests {
     use super::*;
 
-    #[cfg(feature = "test-integration")]
     #[tokio::test]
     async fn test_executor_success_and_streams_stdout() {
         let (event_tx, mut event_rx) = mpsc::channel::<Event>(100);
@@ -141,7 +141,6 @@ mod tests {
         assert!(logs[0].1.contains("hello stdout"));
     }
 
-    #[cfg(feature = "test-integration")]
     #[tokio::test]
     async fn test_executor_success_and_streams_stderr() {
         let (event_tx, mut event_rx) = mpsc::channel::<Event>(100);
