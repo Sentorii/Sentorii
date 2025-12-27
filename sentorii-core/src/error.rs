@@ -1,9 +1,9 @@
 //! Custom error types for the sentorii-core crate.
 
+use sentorii_config::ConfigError;
 use sentorii_contracts::error::{CommandBuildError, CommandExecutionError};
 use thiserror::Error;
 use tokio::task::JoinError;
-use sentorii_config::ConfigError;
 
 /// The primary error type for operations within the sentorii-core crate.
 #[derive(Debug, Error)]
@@ -24,7 +24,7 @@ pub enum CoreError {
 
     #[error("Workflow engine state is invalid: {0}")]
     InvalidState(#[from] InvalidStateError),
-    
+
     #[error("Config error: {0}")]
     ConfigError(#[from] ConfigError),
 }
@@ -38,6 +38,8 @@ pub enum InvalidStateError {
     InputChannelClosed,
     #[error("Attempted to operate on a workflow that is not in a runnable state (status: {0})")]
     NotRunnable(String),
+    #[error("The output from a critical git command was not valid UTF-8 text.")]
+    InvalidGitOutput,
 }
 
 impl From<JoinError> for CoreError {
