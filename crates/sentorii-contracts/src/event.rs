@@ -1,7 +1,8 @@
 //! Defines the complete, structured language for the backend to communicate its state.
 
-use crate::step::{CommandStep, Step};
+use crate::step::{Category, CommandStep, Step};
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 
 /// The execution status of a single workflow step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,7 +32,19 @@ pub struct FailureInfo {
     pub error_message: String,
     pub failed_command: CommandStep,
     pub possible_reverts: Vec<RevertAction>,
-    pub possible_recoveries: Vec<RevertAction>,
+    pub possible_recoveries: Vec<RecoveryAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaticStepInfo {
+    pub description: String,
+    pub category: Category,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeStepInfo {
+    pub index: u32,
+    pub description: String,
 }
 
 /// A request from the engine to the UI for a string input.
@@ -76,21 +89,29 @@ pub struct IdentifiedStep {
     pub step: Step,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LogStream {
+    Stdout,
+    Stderr,
+}
+
 /// The primary enum representing all possible state changes containing the full execution plan.
 #[derive(Debug)]
 pub enum Event {
     /// Sent once at the beginning of a workflow, containing the full execution plan.
-    WorkflowPlanReady(Vec<IdentifiedStep>, WorkflowMetadata),
+    WorkflowPlanReady(Vec<StaticStepInfo>, WorkflowMetadata),
     /// Sent when a specific step is about to be executed.
-    StepStarted(u32),
+    StepStarted(RuntimeStepInfo),
     /// Sent when a specific step has finished, with its status.
     StepFinished(u32, StepStatus),
     /// Provides real-time log output from a running command.
-    LogOutput(String),
+    LogOutput { stream: LogStream, line: String },
     /// Sent once when the entire workflow has completed.
     WorkflowComplete(Result<(), String>),
     /// Sent when a step fails and the workflow is paused, awaiting user intervention.
     WorkflowPausedOnFailure(FailureInfo),
+    /// Sent once when engine is busy, but a new workflow request is received.
+    WorkflowRejected { reason: String },
     /// Sent when the engine requires a string input from the user to proceed.
     StringInputRequired(StringInputRequest),
     /// Sent when the engine requires a selection from the user to proceed.

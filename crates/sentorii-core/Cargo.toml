@@ -1,0 +1,29 @@
+[package]
+name = "sentorii-core"
+version = "0.1.0"
+edition = "2024"
+description = "Headless, message-driven engine for the Sentorii application."
+license = "MIT"
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true}
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true}
+log = { workspace = true }
+
+sentorii-contracts = { workspace = true}
+sentorii-config = { workspace = true}
+
+[features]
+test-integration = []
+
+[dev-dependencies]
+sentorii-contracts = { workspace = true , features = ["test_utils"]}
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true}
+
+[lints]
+workspace = true
