@@ -3,7 +3,8 @@
 use crate::error::CoreError;
 use crate::error::InvalidStateError::EventChannelClosed;
 use crate::workflow::runner::Workflow;
-use crate::workflow::state::PersistentWorkflowState;
+use crate::workflow::state::{PersistentWorkflowState, load_state};
+use log::{Level, log};
 use sentorii_contracts::context::Context;
 use sentorii_contracts::event::{Event, WorkflowMetadata};
 use sentorii_contracts::runner::CommandRunner;
@@ -55,6 +56,10 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
             .await
             .map_err(|_| EventChannelClosed)?;
 
+        if load_state(self.git_root.as_path()).await.is_ok() {
+            log!(Level::Warn, "Existing state found");
+        }
+
         let state = PersistentWorkflowState {
             workflow_id: self.id,
             current_step: 0,
@@ -105,12 +110,12 @@ mod tests {
         let git_root = PathBuf::from("git_root");
         let context = ContextBuilder::new().build();
 
-        let step1 = git_pull("origin", "new-branch");
+        let step_git_pull = git_pull("origin", "new-branch");
 
-        let steps = vec![step1.clone()];
+        let steps = vec![step_git_pull.clone()];
 
         let workflow = WorkflowBuilder::new(workflow_id, event_tx, runner, git_root, context)
-            .step(step1.clone())
+            .step(step_git_pull.clone())
             .build()
             .await
             .unwrap();

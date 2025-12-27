@@ -1,6 +1,7 @@
-use crate::error::CoreError;
 use crate::error::InvalidStateError::{EventChannelClosed, InputChannelClosed};
+use crate::error::{CoreError, InvalidStateError};
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
+use log::{Level, log};
 use sentorii_contracts::command::Command;
 use sentorii_contracts::event::{
     Event, FailureInfo, RuntimeStepInfo, StepStatus, StringInputRequest,
@@ -23,6 +24,7 @@ pub struct Workflow<R: CommandRunner> {
 
 impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     pub async fn run(mut self) {
+        log!(Level::Info, "Starting workflow {:?}", self.id);
         let result = self.run_internal().await;
 
         let final_event = match result {
@@ -39,7 +41,13 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
 
             save_state(&self.git_root, &self.state).await?;
 
-            self.execute_step(index as u32, step).await?;
+            let index_u32 = u32::try_from(index).map_err(|_| {
+                CoreError::InvalidState(InvalidStateError::NotRunnable(format!(
+                    "Index conversion failed for: {index}"
+                )))
+            });
+
+            self.execute_step(index_u32?, step).await?;
         }
 
         delete_state(&self.git_root).await?;
@@ -61,7 +69,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             Step::RequestStringInput(request_template) => {
                 self.execute_string_input_step(request_template).await
             }
-            Step::RequestSelectInput(request_template) => {
+            Step::RequestSelectInput(_) => {
                 unimplemented!("Select input is not yet supported by the runner.");
             }
         };
@@ -75,10 +83,9 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
                 Ok(())
             }
             Err(e) => {
-                self.handle_failure(&e, index as usize, step).await;
+                self.handle_failure(&e, index, step).await;
                 Err(e)
             }
-            _ => Ok(()),
         }
     }
 
@@ -118,7 +125,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         Ok(())
     }
 
-    async fn handle_failure(&mut self, error: &CoreError, index: usize, step: &Step) {
+    async fn handle_failure(&mut self, error: &CoreError, index: u32, step: &Step) {
         self.state.status = "PausedOnFailure".to_string();
         let _ = save_state(&self.git_root, &self.state).await;
 
@@ -138,7 +145,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         let _ = self
             .event_tx
             .send(Event::StepFinished(
-                index as u32,
+                index,
                 StepStatus::Failure(error.to_string()),
             ))
             .await;

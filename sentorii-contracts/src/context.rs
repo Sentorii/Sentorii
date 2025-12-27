@@ -151,13 +151,13 @@ mod tests {
     fn test_value_source_from_string() {
         let str = "hello".to_string();
         let value = ValueSource::from(str.clone());
-        assert_eq!(value, ValueSource::Literal(str.into()));
+        assert_eq!(value, ValueSource::Literal(str));
     }
 
     #[test]
     fn test_value_source_from_context() {
         let key = ContextKey::Develop;
-        let value = ValueSource::from(key.clone());
+        let value = ValueSource::from(key);
         assert_eq!(value, ValueSource::FromContext(key));
     }
 
