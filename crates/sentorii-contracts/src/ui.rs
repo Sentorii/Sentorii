@@ -1,7 +1,6 @@
 //! Defines the shared, UI-agnostic data structures for UI state.
 
 use crate::event::FailureInfo;
-use crate::step::CommandStep;
 use serde::{Deserialize, Serialize};
 
 /// The status of a single step as viewed by the UI.
@@ -18,12 +17,12 @@ pub enum UiStepStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UiStep {
     /// The unique identifier for this step, matching the one from the engine's plan.
-    pub id: u32,
+    pub id: usize,
     /// The underlying command details for display purposes.
-    pub command: CommandStep,
-    /// The curretn status of this step.
+    pub description: String,
+    /// The current status of this step.
     pub status: UiStepStatus,
-    /// A colllection of logs captured during this step's execution.
+    /// A collection of logs captured during this step's execution.
     pub logs: Vec<String>,
 }
 

@@ -14,6 +14,7 @@ use crate::event::{RecoveryAction, RevertAction, StaticStepInfo};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::ui::{UiStep, UiStepStatus};
 
 /// A high-level, UI-friendly category for a command step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,6 +75,22 @@ impl Step {
         StaticStepInfo {
             description,
             category,
+        }
+    }
+    
+    #[must_use]
+    pub fn ui_step(&self, id: usize) -> UiStep {
+        let (description, status, logs) = match self {
+            Self::Command(cmd) => (cmd.static_description(), UiStepStatus::Pending, Vec::new()),
+            Self::RequestStringInput(req) => (req.prompt.clone(), UiStepStatus::Pending, Vec::new()),
+            Self::RequestSelectInput(req) => (req.prompt.clone(), UiStepStatus::Pending, Vec::new()),
+        };
+        
+        UiStep {
+            id,
+            description,
+            status,
+            logs,
         }
     }
 

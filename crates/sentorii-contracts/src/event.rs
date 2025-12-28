@@ -3,6 +3,7 @@
 use crate::step::{Category, CommandStep, Step};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
+use crate::ui::{UiStep, UiStepStatus};
 
 /// The execution status of a single workflow step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,8 +44,9 @@ pub struct StaticStepInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeStepInfo {
-    pub index: u32,
+    pub index: usize,
     pub description: String,
+    pub status: UiStepStatus,
 }
 
 /// A request from the engine to the UI for a string input.
@@ -99,11 +101,11 @@ pub enum LogStream {
 #[derive(Debug)]
 pub enum Event {
     /// Sent once at the beginning of a workflow, containing the full execution plan.
-    WorkflowPlanReady(Vec<StaticStepInfo>, WorkflowMetadata),
+    WorkflowPlanReady(String, Vec<UiStep>, WorkflowMetadata),
     /// Sent when a specific step is about to be executed.
     StepStarted(RuntimeStepInfo),
     /// Sent when a specific step has finished, with its status.
-    StepFinished(u32, StepStatus),
+    StepFinished(RuntimeStepInfo),
     /// Provides real-time log output from a running command.
     LogOutput { stream: LogStream, line: String },
     /// Sent once when the entire workflow has completed.

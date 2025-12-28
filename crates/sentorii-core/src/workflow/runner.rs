@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
+use sentorii_contracts::ui::UiStepStatus;
 
 #[derive(Debug)]
 pub struct Workflow<R: CommandRunner> {
@@ -41,25 +42,20 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
 
             save_state(&self.git_root, &self.state).await?;
 
-            let index_u32 = u32::try_from(index).map_err(|_| {
-                CoreError::InvalidState(InvalidStateError::NotRunnable(format!(
-                    "Index conversion failed for: {index}"
-                )))
-            });
-
-            self.execute_step(index_u32?, step).await?;
+            self.execute_step(index, step).await?;
         }
 
         delete_state(&self.git_root).await?;
         Ok(())
     }
 
-    async fn execute_step(&mut self, index: u32, step: &Step) -> Result<(), CoreError> {
+    async fn execute_step(&mut self, index: usize, step: &Step) -> Result<(), CoreError> {
         let resolved_description = step.resolved_description(&self.state.context);
         self.event_tx
             .send(Event::StepStarted(RuntimeStepInfo {
                 index,
-                description: resolved_description,
+                description: resolved_description.clone(),
+                status: UiStepStatus::Running
             }))
             .await
             .map_err(|_| EventChannelClosed)?;
@@ -77,7 +73,11 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         match result {
             Ok(()) => {
                 self.event_tx
-                    .send(Event::StepFinished(index, StepStatus::Success))
+                    .send(Event::StepFinished(RuntimeStepInfo {
+                        index,
+                        description: resolved_description,
+                        status: UiStepStatus::Success,
+                    }))
                     .await
                     .map_err(|_| EventChannelClosed)?;
                 Ok(())
@@ -125,7 +125,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         Ok(())
     }
 
-    async fn handle_failure(&mut self, error: &CoreError, index: u32, step: &Step) {
+    async fn handle_failure(&mut self, error: &CoreError, index: usize, step: &Step) {
         self.state.status = "PausedOnFailure".to_string();
         let _ = save_state(&self.git_root, &self.state).await;
 
@@ -144,10 +144,11 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
 
         let _ = self
             .event_tx
-            .send(Event::StepFinished(
+            .send(Event::StepFinished(RuntimeStepInfo {
                 index,
-                StepStatus::Failure(error.to_string()),
-            ))
+                description: step.resolved_description(&self.state.context),
+                status: UiStepStatus::Failure(error.to_string())
+            }))
             .await;
     }
 }
