@@ -66,4 +66,28 @@ pub struct UiState {
     pub steps: Vec<UiStep>,
     /// The current modal state of the UI. If not `None`, the UI should display a modal.
     pub modal: ModalState,
+    pub status: UiStepStatus,
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self {
+            workflow_title: "".to_string(),
+            steps: Vec::new(),
+            modal: ModalState::None,
+            status: UiStepStatus::Pending,
+        }
+    }
+}
+
+impl UiState {
+    pub fn is_finished(&self) -> bool {
+        self.status == UiStepStatus::Success
+    }
+    pub fn is_failed(&self) -> bool {
+        !self.is_finished()
+    }
+    pub fn is_awaiting_input(&self) -> bool {
+        self.modal != ModalState::None
+    }
 }

@@ -1,7 +1,7 @@
 use std::io;
 use std::io::Stderr;
 use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
+use ratatui::{Frame, Terminal};
 use anyhow::Result;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal;
@@ -25,6 +25,11 @@ impl Tui {
             EnterAlternateScreen,
             EnableMouseCapture,
         )?;
+        Ok(())
+    }
+
+    pub fn draw(&mut self, f: impl FnOnce(&mut Frame)) -> Result<()> {
+        self.terminal.draw(f)?;
         Ok(())
     }
 

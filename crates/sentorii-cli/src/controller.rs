@@ -2,17 +2,22 @@ use std::time::Duration;
 use anyhow::Result;
 use crossterm::event;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use sentorii_contracts::ui::UiState;
-use sentorii_contracts::workflow_request::WorkflowRequest;
+use tokio::sync::oneshot;
+use tui_input::backend::crossterm::EventHandler;
+use sentorii_contracts::ui::{ModalState, UiState};
+use crate::app::{ActiveModal, TuiAppState};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Action {
-    SendRequest(WorkflowRequest),
+    SubmitTextInput {
+        text: String,
+        responder: oneshot::Sender<String>,
+    },
     Quit,
     NoOp,
 }
 
-pub fn poll_for_action(tick_rate: Duration, state: &mut UiState) -> Result<Option<Action>> {
+pub fn poll_for_action(tick_rate: Duration, state: &mut TuiAppState) -> Result<Option<Action>> {
     if event::poll(tick_rate)? {
         if let event::Event::Key(key) = event::read()? {
             return Ok(Some(handle_key_event(key, state)));
@@ -22,7 +27,7 @@ pub fn poll_for_action(tick_rate: Duration, state: &mut UiState) -> Result<Optio
     Ok(None)
 }
 
-fn handle_key_event(key: KeyEvent, state: &mut UiState) -> Action {
+fn handle_key_event(key: KeyEvent, state: &mut TuiAppState) -> Action {
     if let KeyEvent {
         code: KeyCode::Char('c'),
         modifiers: KeyModifiers::CONTROL,
@@ -32,25 +37,35 @@ fn handle_key_event(key: KeyEvent, state: &mut UiState) -> Action {
         return Action::Quit;
     }
 
-    if state.is_failed() {
+    if let ModalState::Failure { .. } = &state.canonical_state.modal {
         return Action::Quit;
     }
 
-    if state.is_awaiting_input() {
-        if let Some(input_state) = state.input_mut() {
-            return match key.code {
-                KeyCode::Enter => {
-                    let user_input = input_state.value().to_string();
-                    state.set_is_awaiting_input(false);
-                    Action::SendRequest(WorkflowRequest::SubmitTextInput(user_input))
+    if let Some(mut active_modal) = state.active_modal.take() {
+        match &mut active_modal {
+            ActiveModal::TextInput { widget, responder } => {
+                match key.code {
+                    KeyCode::Enter => {
+                        if let Some(ActiveModal::TextInput { widget, responder }) = state.active_modal.take() {
+                            state.canonical_state.modal = ModalState::None;
+                            return Action::SubmitTextInput {
+                                text: widget.value().to_string(),
+                                responder
+                            };
+                        }
+                    }
+                    KeyCode::Esc => {
+                        state.canonical_state.modal = ModalState::None;
+                        return Action::Quit
+                    }
+                    _ => {
+                        widget.handle_event(&event::Event::Key(key));
+                    }
                 }
-                KeyCode::Esc => Action::Quit,
-                _ => {
-                    input_state.handle_event(&event::Event::Key(key));
-                    Action::NoOp
-                }
-            };
+            }
         }
+        state.active_modal = Some(active_modal);
+        return Action::NoOp;
     }
 
     Action::NoOp

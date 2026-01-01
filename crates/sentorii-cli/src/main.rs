@@ -4,8 +4,8 @@ use std::time::Duration;
 use anyhow::Result;
 use clap::Parser;
 use tokio::sync::mpsc;
-use sentorii_cli::cli::{Cli, Commands, FeatureCommands};
-use sentorii_cli::{app, workflow_dispatcher, App};
+use sentorii_cli::cli::Cli;
+use sentorii_cli::{controller, ui, workflow_dispatcher, App};
 use sentorii_cli::tui::Tui;
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
@@ -27,9 +27,9 @@ async fn main() -> Result<()> {
 
     let tick_rate = Duration::from_millis(16);
     while !app.should_quit() {
-        tui.draw(|frame| ui::render(frame, &mut app.state))?;
+        tui.draw(|frame| ui::render(frame, &mut app.tui_state))?;
 
-        if let Some(action) = controller::poll_for_action(tick_rate, &mut app.state)? {
+        if let Some(action) = controller::poll_for_action(tick_rate, &mut app.tui_state)? {
             app.handle_action(action)?;
         }
 
