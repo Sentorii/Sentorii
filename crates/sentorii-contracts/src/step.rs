@@ -48,7 +48,7 @@ pub struct RequestStringInputTemplate {
     /// The message to display to the user.
     pub prompt: String,
     /// An optional default value for the input.
-    default_value: Option<String>,
+    pub default_value: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

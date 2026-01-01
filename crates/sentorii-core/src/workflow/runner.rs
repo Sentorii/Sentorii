@@ -114,7 +114,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             "tag" => {
                 self.state.context.set_tag(user_input);
             }
-            "feauture_name" => {
+            "feature_name" => {
                 self.state.context.set_feature_branch(user_input);
             }
             _ => {}

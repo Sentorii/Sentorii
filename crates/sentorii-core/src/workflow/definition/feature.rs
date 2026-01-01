@@ -6,10 +6,11 @@ use crate::workflow::runner::Workflow;
 use sentorii_contracts::context::{Context, ContextKey};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::runner::CommandRunner;
-use sentorii_contracts::step::{git_checkout, git_checkout_new_branch, git_pull};
+use sentorii_contracts::step::{git_checkout, git_checkout_new_branch, git_pull, RequestStringInputTemplate};
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 use uuid::Uuid;
+use sentorii_contracts::step::Step::RequestStringInput;
 
 pub async fn start_feature<R: CommandRunner>(
     workflow_id: Uuid,
@@ -22,6 +23,11 @@ pub async fn start_feature<R: CommandRunner>(
     let workflow = WorkflowBuilder::new(workflow_id, name, event_tx, runner, git_root, context)
         .step(git_pull(ContextKey::Remote, ContextKey::Develop))
         .step(git_checkout(ContextKey::Develop))
+        .step(RequestStringInput(RequestStringInputTemplate {
+            key: "feature_name".to_string(),
+            prompt: "Please provide the name for your new feature branch:".to_string(),
+            default_value: None,
+        }))
         .step(git_checkout_new_branch(ContextKey::FeatureBranch))
         .build()
         .await?;
