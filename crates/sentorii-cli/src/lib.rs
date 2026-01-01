@@ -14,10 +14,10 @@
 
 pub mod app;
 pub mod cli;
+pub mod controller;
 pub mod state;
 pub mod tui;
 pub mod ui;
 pub mod workflow_dispatcher;
-pub mod controller;
 
 pub use app::App;

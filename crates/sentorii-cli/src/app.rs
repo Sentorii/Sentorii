@@ -1,18 +1,18 @@
-use tokio::sync::mpsc::Sender;
-use sentorii_contracts::ui::{ModalState, UiState};
-use sentorii_contracts::workflow_request::WorkflowRequest;
-use anyhow::Result;
-use tokio::sync::oneshot;
-use tui_input::Input;
-use sentorii_contracts::event::{Event, StringInputRequest};
 use crate::controller::Action;
 use crate::state;
+use anyhow::Result;
+use sentorii_contracts::event::{Event, StringInputRequest};
+use sentorii_contracts::ui::{ModalState, UiState};
+use sentorii_contracts::workflow_request::WorkflowRequest;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::oneshot;
+use tui_input::Input;
 
 pub enum ActiveModal {
     TextInput {
         widget: Input,
         responder: oneshot::Sender<String>,
-    }
+    },
 }
 
 pub struct TuiAppState {
@@ -27,6 +27,7 @@ pub struct App {
 }
 
 impl App {
+    #[must_use]
     pub fn new(request_tx: Sender<WorkflowRequest>) -> Self {
         Self {
             tui_state: TuiAppState {
@@ -50,31 +51,34 @@ impl App {
     }
 
     pub fn handle_core_event(&mut self, event: Event) {
-       match event {
-           Event::StringInputRequired(StringInputRequest { key, prompt, tx}) => {
-               self.tui_state.canonical_state.modal = ModalState::TextInput {
-                   key,
-                   prompt,
-                   buffer: String::new(),
-               };
+        match event {
+            Event::StringInputRequired(StringInputRequest { key, prompt, tx }) => {
+                self.tui_state.canonical_state.modal = ModalState::TextInput {
+                    key,
+                    prompt,
+                    buffer: String::new(),
+                };
 
-               self.tui_state.active_modal = Some(ActiveModal::TextInput {
-                   widget: Input::default(),
-                   responder: tx,
-               })
-           }
-           _ => {
-               state::update_state(&mut self.tui_state.canonical_state, event);
+                self.tui_state.active_modal = Some(ActiveModal::TextInput {
+                    widget: Input::default(),
+                    responder: tx,
+                });
+            }
+            _ => {
+                state::update_state(&mut self.tui_state.canonical_state, event);
 
-               if !matches!(self.tui_state.canonical_state.modal, ModalState::TextInput {..}) {
-                   self.tui_state.active_modal = None;
-               }
-           }
-       }
+                if !matches!(
+                    self.tui_state.canonical_state.modal,
+                    ModalState::TextInput { .. }
+                ) {
+                    self.tui_state.active_modal = None;
+                }
+            }
+        }
     }
 
-    pub fn should_quit(&self) -> bool {
+    #[must_use]
+    pub const fn should_quit(&self) -> bool {
         self.should_quit
     }
 }
-

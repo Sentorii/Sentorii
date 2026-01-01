@@ -1,10 +1,10 @@
-use log::{log, Level};
+use log::{Level, log};
 use sentorii_contracts::event::{Event, LogStream};
 use sentorii_contracts::ui::{ModalState, UiState, UiStepStatus};
 
 pub fn update_state(state: &mut UiState, event: Event) {
     match event {
-        Event::WorkflowPlanReady(name, steps, workflowMetaData) => {
+        Event::WorkflowPlanReady(name, steps, ..) => {
             state.workflow_title = name;
             state.steps = steps;
             state.modal = ModalState::None;
@@ -20,16 +20,14 @@ pub fn update_state(state: &mut UiState, event: Event) {
                 step.status = info.status;
             }
         }
-        Event::LogOutput { stream, line} => {
-            match stream {
-                LogStream::Stdout => {
-                    log!(Level::Info, "{}", line);
-                }
-                LogStream::Stderr => {
-                    log!(Level::Error, "{}", line);
-                }
+        Event::LogOutput { stream, line } => match stream {
+            LogStream::Stdout => {
+                log!(Level::Info, "{line}");
             }
-        }
+            LogStream::Stderr => {
+                log!(Level::Error, "{line}");
+            }
+        },
         Event::StringInputRequired(prompt) => {
             state.modal = ModalState::TextInput {
                 prompt: prompt.prompt,
@@ -52,18 +50,14 @@ pub fn update_state(state: &mut UiState, event: Event) {
             };
             state.status = UiStepStatus::Failure(failure_info.error_message);
         }
-        Event::WorkflowComplete(info) => {
-            match info {
-                Ok(i) => {
-                    state.status = UiStepStatus::Success
-                }
-                Err(e) => {
-                    state.status = UiStepStatus::Failure(e.to_string());
-                }
+        Event::WorkflowComplete(info) => match info {
+            Ok(()) => state.status = UiStepStatus::Success,
+            Err(e) => {
+                state.status = UiStepStatus::Failure(e);
             }
-        }
+        },
         Event::WorkflowRejected { reason } => {
-            state.status = UiStepStatus::Failure(reason.to_string());
+            state.status = UiStepStatus::Failure(reason);
         }
     }
 }

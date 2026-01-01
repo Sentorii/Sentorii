@@ -16,7 +16,7 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
                 UiStepStatus::Success => ("  [✔]", Style::default().fg(Color::Green)),
                 UiStepStatus::Failure(_) => ("  [✘]", Style::default().fg(Color::Red)),
             };
-            let content = format!("{} {}", prefix, step.description.to_string());
+            let content = format!("{prefix} {}", step.description.clone());
             ListItem::new(Line::from(content).style(style))
         })
         .collect();
@@ -35,9 +35,11 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
                 render_text_input_modal(frame, prompt, widget);
             }
         }
-        ModalState::Failure { info, .. } => {
-            render_failure_modal(frame, &info.failed_command.static_description(), &info.error_message)
-        }
+        ModalState::Failure { info, .. } => render_failure_modal(
+            frame,
+            &info.failed_command.static_description(),
+            &info.error_message,
+        ),
         _ => {}
     }
 }
@@ -56,17 +58,20 @@ fn render_text_input_modal(frame: &mut Frame, prompt: &str, input: &tui_input::I
 
     frame.render_widget(input_paragraph, area);
 
-    frame.set_cursor_position(Position::new(area.x + input.visual_cursor() as u16 + 1, area.y + 1));
+    frame.set_cursor_position(Position::new(
+        area.x + u16::try_from(input.visual_cursor()).unwrap() + 1,
+        area.y + 1,
+    ));
 }
 
 fn render_failure_modal(frame: &mut Frame, title: &str, error_message: &str) {
     let area = centered_rect(80, 25, frame.area());
     let block = Block::default()
-        .title(format!(" Workflow Failed: {}", title))
+        .title(format!(" Workflow Failed: {title}"))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Red));
 
-    let error_text = format!("{}\n\nPress any key to exit.", error_message);
+    let error_text = format!("{error_message}\n\nPress any key to exit.");
 
     let error_paragraph = Paragraph::new(error_text)
         .wrap(Wrap { trim: true })

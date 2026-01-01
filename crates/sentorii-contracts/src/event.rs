@@ -1,9 +1,9 @@
 //! Defines the complete, structured language for the backend to communicate its state.
 
 use crate::step::{Category, CommandStep, Step};
+use crate::ui::{UiStep, UiStepStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
-use crate::ui::{UiStep, UiStepStatus};
 
 /// The execution status of a single workflow step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

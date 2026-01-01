@@ -72,22 +72,10 @@ pub struct UiState {
 impl Default for UiState {
     fn default() -> Self {
         Self {
-            workflow_title: "".to_string(),
+            workflow_title: String::new(),
             steps: Vec::new(),
             modal: ModalState::None,
             status: UiStepStatus::Pending,
         }
-    }
-}
-
-impl UiState {
-    pub fn is_finished(&self) -> bool {
-        self.status == UiStepStatus::Success
-    }
-    pub fn is_failed(&self) -> bool {
-        !self.is_finished()
-    }
-    pub fn is_awaiting_input(&self) -> bool {
-        self.modal != ModalState::None
     }
 }

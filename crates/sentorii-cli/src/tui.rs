@@ -1,11 +1,11 @@
-use std::io;
-use std::io::Stderr;
-use ratatui::backend::CrosstermBackend;
-use ratatui::{Frame, Terminal};
 use anyhow::Result;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::backend::CrosstermBackend;
+use ratatui::{Frame, Terminal};
+use std::io;
+use std::io::Stderr;
 
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stderr>>,
@@ -47,7 +47,7 @@ impl Tui {
 impl Drop for Tui {
     fn drop(&mut self) {
         if let Err(e) = self.exit() {
-            eprintln!("Failed to restore terminal: {}", e);
+            eprintln!("Failed to restore terminal: {e}");
         }
     }
 }

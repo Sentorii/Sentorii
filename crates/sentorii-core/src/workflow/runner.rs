@@ -1,18 +1,16 @@
+use crate::error::CoreError;
 use crate::error::InvalidStateError::{EventChannelClosed, InputChannelClosed};
-use crate::error::{CoreError, InvalidStateError};
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
 use log::{Level, log};
 use sentorii_contracts::command::Command;
-use sentorii_contracts::event::{
-    Event, FailureInfo, RuntimeStepInfo, StepStatus, StringInputRequest,
-};
+use sentorii_contracts::event::{Event, FailureInfo, RuntimeStepInfo, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
 use sentorii_contracts::step::{CommandStep, RequestStringInputTemplate, Step};
+use sentorii_contracts::ui::UiStepStatus;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
-use sentorii_contracts::ui::UiStepStatus;
 
 #[derive(Debug)]
 pub struct Workflow<R: CommandRunner> {
@@ -55,7 +53,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             .send(Event::StepStarted(RuntimeStepInfo {
                 index,
                 description: resolved_description.clone(),
-                status: UiStepStatus::Running
+                status: UiStepStatus::Running,
             }))
             .await
             .map_err(|_| EventChannelClosed)?;
@@ -147,7 +145,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             .send(Event::StepFinished(RuntimeStepInfo {
                 index,
                 description: step.resolved_description(&self.state.context),
-                status: UiStepStatus::Failure(error.to_string())
+                status: UiStepStatus::Failure(error.to_string()),
             }))
             .await;
     }

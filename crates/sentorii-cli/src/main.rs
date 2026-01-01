@@ -1,14 +1,14 @@
 #![forbid(unsafe_code)]
 
-use std::time::Duration;
 use anyhow::Result;
 use clap::Parser;
-use tokio::sync::mpsc;
 use sentorii_cli::cli::Cli;
-use sentorii_cli::{controller, ui, workflow_dispatcher, App};
 use sentorii_cli::tui::Tui;
+use sentorii_cli::{App, controller, ui, workflow_dispatcher};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
+use std::time::Duration;
+use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
