@@ -39,7 +39,7 @@ impl App {
         }
     }
 
-    pub fn handle_action(&mut self, action: Action) -> Result<()> {
+    pub async fn handle_action(&mut self, action: Action) -> Result<()> {
         match action {
             Action::SubmitTextInput { text, responder } => {
                 let _ = responder.send(text);

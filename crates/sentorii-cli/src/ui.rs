@@ -1,10 +1,20 @@
 use crate::app::{ActiveModal, TuiAppState};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
+use tui_logger::TuiLoggerWidget;
 use sentorii_contracts::command::Command;
 use sentorii_contracts::ui::{ModalState, UiStepStatus};
 
 pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(70),
+            Constraint::Percentage(30),
+        ].as_ref())
+        .split(frame.area());
+    let app_chunk = main_chunks[0];
+    let log_chunk = main_chunks[1];
     let steps_list: Vec<ListItem> = app_state
         .canonical_state
         .steps
@@ -27,7 +37,7 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
             .borders(Borders::ALL),
     );
 
-    frame.render_widget(list_widget, frame.area());
+    frame.render_widget(list_widget, app_chunk);
 
     match &app_state.canonical_state.modal {
         ModalState::TextInput { prompt, .. } => {
@@ -42,6 +52,20 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
         ),
         _ => {}
     }
+
+    let logger_widget = TuiLoggerWidget::default()
+        .block(
+            Block::default()
+                .title(" Logs ")
+                .borders(Borders::ALL),
+        )
+        .style_error(Style::default().fg(Color::Red))
+        .style_warn(Style::default().fg(Color::Yellow))
+        .style_info(Style::default().fg(Color::Cyan))
+        .style_debug(Style::default().fg(Color::Green))
+        .style_trace(Style::default().fg(Color::Magenta));
+
+    frame.render_widget(logger_widget, log_chunk)
 }
 
 fn render_text_input_modal(frame: &mut Frame, prompt: &str, input: &tui_input::Input) {

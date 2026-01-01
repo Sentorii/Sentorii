@@ -23,7 +23,6 @@ pub struct Workflow<R: CommandRunner> {
 
 impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     pub async fn run(mut self) {
-        log!(Level::Info, "Starting workflow {:?}", self.id);
         let result = self.run_internal().await;
 
         let final_event = match result {

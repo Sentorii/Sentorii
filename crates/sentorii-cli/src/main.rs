@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tui_logger::init_logger(log::LevelFilter::Trace)?;
     let cli = Cli::parse();
 
     let (request_tx, request_rx) = mpsc::channel::<WorkflowRequest>(10);
@@ -23,14 +24,14 @@ async fn main() -> Result<()> {
     tui.enter()?;
 
     let mut app = App::new(request_tx.clone());
-    workflow_dispatcher::dispatch(cli, &request_tx)?;
+    workflow_dispatcher::dispatch(cli, &request_tx).await?;
 
     let tick_rate = Duration::from_millis(16);
     while !app.should_quit() {
         tui.draw(|frame| ui::render(frame, &mut app.tui_state))?;
 
         if let Some(action) = controller::poll_for_action(tick_rate, &mut app.tui_state)? {
-            app.handle_action(action)?;
+            app.handle_action(action).await?;
         }
 
         if let Ok(core_event) = event_rx.try_recv() {

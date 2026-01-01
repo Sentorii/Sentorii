@@ -1,4 +1,4 @@
-use log::{Level, log};
+use log::{Level, log, info, error};
 use sentorii_contracts::event::{Event, LogStream};
 use sentorii_contracts::ui::{ModalState, UiState, UiStepStatus};
 
@@ -22,10 +22,10 @@ pub fn update_state(state: &mut UiState, event: Event) {
         }
         Event::LogOutput { stream, line } => match stream {
             LogStream::Stdout => {
-                log!(Level::Info, "{line}");
+                info!("{line}");
             }
             LogStream::Stderr => {
-                log!(Level::Error, "{line}");
+                error!("{line}");
             }
         },
         Event::StringInputRequired(prompt) => {

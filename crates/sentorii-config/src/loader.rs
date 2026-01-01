@@ -240,6 +240,7 @@ mod tests {
             branching: Branching {
                 main: "env-main".to_string(),
                 develop: "project-dev".to_string(),
+                remote: "origin".to_string(),
                 prefixes: Prefixes {
                     feature: "feature/".to_string(),
                     release: "release/".to_string(),

@@ -15,7 +15,8 @@ tui-input = { workspace = true }
 
 sentorii-core = { workspace = true }
 sentorii-contracts = { workspace = true }
-log = "0.4.29"
+log = { workspace = true }
+tui-logger = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
