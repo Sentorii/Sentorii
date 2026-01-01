@@ -64,6 +64,10 @@ impl App {
                     responder: tx,
                 });
             }
+            Event::WorkflowComplete(..) => {
+                self.should_quit = true;
+                state::update_state(&mut self.tui_state.canonical_state, event)
+            }
             _ => {
                 state::update_state(&mut self.tui_state.canonical_state, event);
 
