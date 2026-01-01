@@ -8,12 +8,12 @@ use crate::git::executor::CommandExecutor;
 use crate::git::utils::resolve_git_root;
 use crate::workflow::context::ContextProvider;
 use crate::workflow::definition::feature::start_feature;
+use log::{error, info, warn};
 use sentorii_config::load_config;
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
-use log::{error, info, warn};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
@@ -110,9 +110,7 @@ fn spawn_workflow_execution_task(
                 }
             }
             Err(e) => {
-                error!(
-                    "FATAL: Mutex poisoned while resetting engine state to idle. Error: {e}"
-                );
+                error!("FATAL: Mutex poisoned while resetting engine state to idle. Error: {e}");
             }
         }
     });

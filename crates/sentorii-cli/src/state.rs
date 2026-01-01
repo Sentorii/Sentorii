@@ -1,4 +1,4 @@
-use log::{Level, log, info, error};
+use log::{Level, error, info, log};
 use sentorii_contracts::event::{Event, LogStream};
 use sentorii_contracts::ui::{ModalState, UiState, UiStepStatus};
 

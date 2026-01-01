@@ -6,11 +6,13 @@ use crate::workflow::runner::Workflow;
 use sentorii_contracts::context::{Context, ContextKey};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::runner::CommandRunner;
-use sentorii_contracts::step::{git_checkout, git_checkout_new_branch, git_pull, RequestStringInputTemplate};
+use sentorii_contracts::step::Step::RequestStringInput;
+use sentorii_contracts::step::{
+    RequestStringInputTemplate, git_checkout, git_checkout_new_branch, git_pull,
+};
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 use uuid::Uuid;
-use sentorii_contracts::step::Step::RequestStringInput;
 
 pub async fn start_feature<R: CommandRunner>(
     workflow_id: Uuid,

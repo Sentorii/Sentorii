@@ -2,17 +2,14 @@ use crate::app::{ActiveModal, TuiAppState};
 use ratatui::prelude::*;
 use ratatui::style::Styled;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
-use tui_logger::TuiLoggerWidget;
 use sentorii_contracts::command::Command;
 use sentorii_contracts::ui::{ModalState, UiStepStatus};
+use tui_logger::TuiLoggerWidget;
 
 pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(70),
-            Constraint::Percentage(30),
-        ].as_ref())
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
         .split(frame.area());
     let app_chunk = main_chunks[0];
     let log_chunk = main_chunks[1];
@@ -30,17 +27,13 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
             frame,
             &info.failed_command.static_description(),
             &info.error_message,
-            app_chunk
+            app_chunk,
         ),
         _ => {}
     }
 
     let logger_widget = TuiLoggerWidget::default()
-        .block(
-            Block::default()
-                .title(" Logs ")
-                .borders(Borders::ALL),
-        )
+        .block(Block::default().title(" Logs ").borders(Borders::ALL))
         .style_error(Style::default().fg(Color::Red))
         .style_warn(Style::default().fg(Color::Yellow))
         .style_info(Style::default().fg(Color::Cyan))
@@ -97,10 +90,11 @@ fn render_text_input_modal(frame: &mut Frame, prompt: &str, input: &tui_input::I
 
     let hint_text = Text::from(Line::from(vec![
         " [Enter] ".into(),
-    "Submit".set_style(Style::default().fg(Color::Green)),
-    " / ".into(),
-    " [Esc] ".into(),
-    "Cancel".set_style(Style::default().fg(Color::Red))]));
+        "Submit".set_style(Style::default().fg(Color::Green)),
+        " / ".into(),
+        " [Esc] ".into(),
+        "Cancel".set_style(Style::default().fg(Color::Red)),
+    ]));
     let hint_paragraph = Paragraph::new(hint_text).alignment(Alignment::Center);
     frame.render_widget(hint_paragraph, hint_area);
 
