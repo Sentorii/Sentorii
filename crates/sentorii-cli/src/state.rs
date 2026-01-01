@@ -1,8 +1,10 @@
-use log::{Level, error, info, log};
+use log::{error, info, log};
 use sentorii_contracts::event::{Event, LogStream};
 use sentorii_contracts::ui::{ModalState, UiState, UiStepStatus};
+use crate::App;
 
-pub fn update_state(state: &mut UiState, event: Event) {
+pub fn update_state(app: &mut App, event: Event) {
+    let state = &mut app.tui_state.canonical_state;
     match event {
         Event::WorkflowPlanReady(name, steps, ..) => {
             state.workflow_title = name;
@@ -51,9 +53,13 @@ pub fn update_state(state: &mut UiState, event: Event) {
             state.status = UiStepStatus::Failure(failure_info.error_message);
         }
         Event::WorkflowComplete(info) => match info {
-            Ok(()) => state.status = UiStepStatus::Success,
+            Ok(()) => {
+                state.status = UiStepStatus::Success;
+                app.should_quit = true;
+            },
             Err(e) => {
                 state.status = UiStepStatus::Failure(e);
+                app.should_quit = false;
             }
         },
         Event::WorkflowRejected { reason } => {

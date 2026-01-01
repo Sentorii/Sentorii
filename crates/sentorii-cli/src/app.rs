@@ -22,8 +22,8 @@ pub struct TuiAppState {
 
 pub struct App {
     pub tui_state: TuiAppState,
-    should_quit: bool,
-    request_tx: Sender<WorkflowRequest>,
+    pub should_quit: bool,
+    pub request_tx: Sender<WorkflowRequest>,
 }
 
 impl App {
@@ -65,11 +65,10 @@ impl App {
                 });
             }
             Event::WorkflowComplete(..) => {
-                self.should_quit = true;
-                state::update_state(&mut self.tui_state.canonical_state, event)
+                state::update_state(self, event);
             }
             _ => {
-                state::update_state(&mut self.tui_state.canonical_state, event);
+                state::update_state(self, event);
 
                 if !matches!(
                     self.tui_state.canonical_state.modal,
