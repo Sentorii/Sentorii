@@ -41,31 +41,29 @@ fn handle_key_event(key: KeyEvent, state: &mut TuiAppState) -> Action {
         return Action::Quit;
     }
 
-    if let Some(mut active_modal) = state.active_modal.take() {
-        match &mut active_modal {
-            ActiveModal::TextInput { widget, .. } => match key.code {
-                KeyCode::Enter => {
-                    if let Some(ActiveModal::TextInput { widget, responder }) =
-                        state.active_modal.take()
-                    {
+    if let Some(active_modal) = state.active_modal.take() {
+        return match active_modal {
+            ActiveModal::TextInput { mut widget, responder } => {
+                match key.code {
+                    KeyCode::Enter => {
                         state.canonical_state.modal = ModalState::None;
-                        return Action::SubmitTextInput {
+                        Action::SubmitTextInput {
                             text: widget.value().to_string(),
-                            responder,
-                        };
+                            responder
+                        }
                     }
-                }
-                KeyCode::Esc => {
-                    state.canonical_state.modal = ModalState::None;
-                    return Action::Quit;
-                }
-                _ => {
-                    widget.handle_event(&event::Event::Key(key));
+                    KeyCode::Esc => {
+                        state.canonical_state.modal = ModalState::None;
+                        Action::Quit
+                    }
+                    _ => {
+                        widget.handle_event(&event::Event::Key(key));
+                        state.active_modal = Some(ActiveModal::TextInput { widget, responder });
+                        Action::NoOp
+                    }
                 }
             },
         }
-        state.active_modal = Some(active_modal);
-        return Action::NoOp;
     }
 
     Action::NoOp
