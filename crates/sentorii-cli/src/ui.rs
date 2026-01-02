@@ -9,7 +9,7 @@ use tui_logger::TuiLoggerWidget;
 pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
         .split(frame.area());
     let app_chunk = main_chunks[0];
     let log_chunk = main_chunks[1];
