@@ -1,7 +1,7 @@
 use crate::app::{ActiveModal, FocusTarget, TuiAppState, ViewMode};
 use ratatui::prelude::*;
 use ratatui::style::Styled;
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
 use sentorii_contracts::command::Command;
 use sentorii_contracts::ui::{ModalState, UiStepStatus};
 use tui_logger::TuiLoggerWidget;

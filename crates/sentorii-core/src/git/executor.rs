@@ -6,7 +6,6 @@ use sentorii_contracts::error::CommandExecutionError;
 use sentorii_contracts::event::{Event, LogLine};
 use sentorii_contracts::runner::CommandRunner;
 use std::process::Stdio;
-use log::Log;
 use tokio::io::AsyncBufRead;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
@@ -130,19 +129,22 @@ mod tests {
         let executor = CommandExecutor::new(event_tx);
         let command = ExecutableCommand::new("echo", ["hello stdout"]);
 
-        let result = executor.execute(command).await;
+        let result = executor.execute(command, 1).await;
         assert!(result.is_ok());
 
         let mut logs = Vec::new();
         while let Ok(event) = event_rx.try_recv() {
-            if let Event::LogOutput { stream, line } = event {
-                logs.push((stream, line));
+            if let Event::LogOutput { line, .. } = event {
+                logs.push(line);
             }
         }
 
         assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].0, LogStream::Stdout);
-        assert!(logs[0].1.contains("hello stdout"));
+        if let LogLine::Stdout(message) = &logs[0] {
+            assert_eq!(message.trim(), "hello stdout");
+        } else {
+            panic!("Expected Stdout");
+        }
     }
 
     #[tokio::test]
@@ -156,18 +158,21 @@ mod tests {
             ExecutableCommand::new("sh", ["-c", "echo 'hello stderr' >&2"])
         };
 
-        let result = executor.execute(command).await;
+        let result = executor.execute(command, 1).await;
         assert!(result.is_ok());
 
         let mut logs = Vec::new();
         while let Ok(event) = event_rx.try_recv() {
-            if let Event::LogOutput { stream, line } = event {
-                logs.push((stream, line));
+            if let Event::LogOutput { line, .. } = event {
+                logs.push(line);
             }
         }
 
         assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].0, LogStream::Stderr);
-        assert!(logs[0].1.contains("hello stderr"));
+        if let LogLine::Stderr(message) = &logs[0] {
+            assert_eq!(message.trim(), "hello stderr");
+        } else {
+            panic!("Expected Stderr");
+        }
     }
 }

@@ -1,7 +1,6 @@
 use crate::error::CoreError;
 use crate::error::InvalidStateError::{EventChannelClosed, InputChannelClosed};
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
-use log::{Level, log};
 use sentorii_contracts::command::Command;
 use sentorii_contracts::event::{Event, FailureInfo, RuntimeStepInfo, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
