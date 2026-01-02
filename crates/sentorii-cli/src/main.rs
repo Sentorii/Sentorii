@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use sentorii_cli::cli::Cli;
 use sentorii_cli::tui::Tui;
-use sentorii_cli::{App, controller, ui, workflow_dispatcher};
+use sentorii_cli::{App, controller, ui, workflow_dispatcher, mock_engine};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::time::Duration;
@@ -18,7 +18,14 @@ async fn main() -> Result<()> {
     let (request_tx, request_rx) = mpsc::channel::<WorkflowRequest>(10);
     let (event_tx, mut event_rx) = mpsc::channel::<Event>(1000);
 
-    tokio::spawn(sentorii_core::start_engine(request_rx, event_tx));
+    #[cfg(not(feature = "mock-engine"))]
+    {
+        tokio::spawn(sentorii_core::start_engine(request_rx, event_tx));
+    }
+    #[cfg(feature = "mock-engine")]
+    {
+        tokio::spawn(mock_engine::start_mock_engine(request_rx, event_tx));
+    }
 
     let mut tui = Tui::new()?;
     tui.enter()?;
