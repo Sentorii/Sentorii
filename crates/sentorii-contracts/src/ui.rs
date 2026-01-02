@@ -1,6 +1,6 @@
 //! Defines the shared, UI-agnostic data structures for UI state.
 
-use crate::event::FailureInfo;
+use crate::event::{FailureInfo, LogLine};
 use serde::{Deserialize, Serialize};
 
 /// The status of a single step as viewed by the UI.
@@ -23,7 +23,7 @@ pub struct UiStep {
     /// The current status of this step.
     pub status: UiStepStatus,
     /// A collection of logs captured during this step's execution.
-    pub logs: Vec<String>,
+    pub logs: Vec<LogLine>,
 }
 
 /// Represents the state of a modal dialog or blocking interaction in the UI.

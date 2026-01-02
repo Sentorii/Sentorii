@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
 use sentorii_contracts::command::Command;
 use sentorii_contracts::ui::{ModalState, UiStepStatus};
 use tui_logger::TuiLoggerWidget;
+use sentorii_contracts::event::LogLine;
 
 pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
     let main_chunks = Layout::default()
@@ -77,7 +78,12 @@ fn render_step_detail(frame: &mut Frame, app_state: &mut TuiAppState, area: Rect
     let step = app_state.canonical_state.steps.iter().find(|step| Some(step.id) == app_state.selected_step_id);
 
     if let Some(step) = step {
-        let logs_text: Vec<Line> = step.logs.iter().map(|log| Line::from(log.as_str())).collect();
+        let logs_text: Vec<Line> = step.logs.iter().map(|log| {
+            match log {
+                LogLine::Stdout(line) => Line::from(line.as_str()).style(Style::default().fg(Color::Green)),
+                LogLine::Stderr(line) => Line::from(line.as_str()).style(Style::default().fg(Color::Red))
+            }
+        }).collect();
         let log_paragraph = Paragraph::new(logs_text)
             .block(
                 Block::default()

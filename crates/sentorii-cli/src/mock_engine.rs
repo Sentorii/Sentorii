@@ -2,7 +2,7 @@ use log::{info, warn};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
-use sentorii_contracts::event::{Event, RuntimeStepInfo, StringInputRequest, WorkflowMetadata};
+use sentorii_contracts::event::{Event, LogLine, RuntimeStepInfo, StringInputRequest, WorkflowMetadata};
 use sentorii_contracts::ui::{UiStep, UiStepStatus};
 use sentorii_contracts::workflow_request::WorkflowRequest;
 
@@ -32,6 +32,8 @@ pub fn start_mock_engine(
 
             // 2. Simulate the first two steps succeeding.
             event_tx.send(Event::StepStarted(RuntimeStepInfo { index: 1, description: "checkout main".to_string(), status: UiStepStatus::Running })).await.unwrap();
+            event_tx.send(Event::LogOutput { step_id: 1, line: LogLine::Stderr("Trying again".to_string()) }).await.unwrap();
+            event_tx.send(Event::LogOutput { step_id: 1, line: LogLine::Stdout("Checking out successful".to_string()) }).await.unwrap();
             tokio::time::sleep(Duration::from_millis(500)).await;
             event_tx.send(Event::StepFinished(RuntimeStepInfo{ index: 1, description: "checkout main".to_string(), status: UiStepStatus::Success })).await.unwrap();
 

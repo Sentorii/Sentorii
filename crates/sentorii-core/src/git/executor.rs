@@ -3,9 +3,10 @@
 use async_trait::async_trait;
 use sentorii_contracts::command::ExecutableCommand;
 use sentorii_contracts::error::CommandExecutionError;
-use sentorii_contracts::event::{Event, LogStream};
+use sentorii_contracts::event::{Event, LogLine};
 use sentorii_contracts::runner::CommandRunner;
 use std::process::Stdio;
+use log::Log;
 use tokio::io::AsyncBufRead;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
@@ -45,16 +46,17 @@ impl CommandExecutor {
     /// Spawns a dedicated task to stream lines from a reader, tagging them with the correct stream type.
     fn stream_lines<R: AsyncBufRead + Unpin + Send + 'static>(
         reader: R,
-        stream_type: LogStream,
+        log_line: fn(String) -> LogLine,
+        step_id: usize,
         event_tx: mpsc::Sender<Event>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if event_tx
-                    .send(Event::LogOutput {
-                        stream: stream_type.clone(),
-                        line,
+                    .send(Event::LogOutput{
+                        step_id,
+                        line: log_line(line)
                     })
                     .await
                     .is_err()
@@ -68,7 +70,7 @@ impl CommandExecutor {
 
 #[async_trait]
 impl CommandRunner for CommandExecutor {
-    async fn execute(&self, command: ExecutableCommand) -> Result<(), CommandExecutionError> {
+    async fn execute(&self, command: ExecutableCommand, step_id: usize) -> Result<(), CommandExecutionError> {
         let full_command_str = format!("{} {}", command.program, command.args.join(" "));
 
         let mut child = Self::spawn_child(&command, &full_command_str)?;
@@ -84,12 +86,14 @@ impl CommandRunner for CommandExecutor {
 
         let stdout_task = Self::stream_lines(
             BufReader::new(stdout),
-            LogStream::Stdout,
+            LogLine::Stdout,
+            step_id,
             self.event_tx.clone(),
         );
         let stderr_task = Self::stream_lines(
             BufReader::new(stderr),
-            LogStream::Stderr,
+            LogLine::Stderr,
+            step_id,
             self.event_tx.clone(),
         );
         let wait_task = tokio::spawn(async move {

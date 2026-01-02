@@ -1,7 +1,6 @@
-use log::{error, info, log};
-use sentorii_contracts::event::{Event, LogStream};
-use sentorii_contracts::ui::{ModalState, UiState, UiStepStatus};
 use crate::App;
+use sentorii_contracts::event::Event;
+use sentorii_contracts::ui::{ModalState, UiStepStatus};
 
 pub fn update_state(app: &mut App, event: Event) {
     let state = &mut app.tui_state.canonical_state;
@@ -22,12 +21,9 @@ pub fn update_state(app: &mut App, event: Event) {
                 step.status = info.status;
             }
         }
-        Event::LogOutput { stream, line } => match stream {
-            LogStream::Stdout => {
-                info!("{line}");
-            }
-            LogStream::Stderr => {
-                error!("{line}");
+        Event::LogOutput { step_id, line } => {
+            if let Some(step) = state.steps.iter_mut().find(|s| s.id == step_id) {
+                step.logs.push(line);
             }
         },
         Event::StringInputRequired(prompt) => {

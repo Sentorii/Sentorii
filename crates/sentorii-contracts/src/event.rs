@@ -92,9 +92,9 @@ pub struct IdentifiedStep {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum LogStream {
-    Stdout,
-    Stderr,
+pub enum LogLine {
+    Stdout(String),
+    Stderr(String),
 }
 
 /// The primary enum representing all possible state changes containing the full execution plan.
@@ -107,7 +107,7 @@ pub enum Event {
     /// Sent when a specific step has finished, with its status.
     StepFinished(RuntimeStepInfo),
     /// Provides real-time log output from a running command.
-    LogOutput { stream: LogStream, line: String },
+    LogOutput { step_id: usize, line: LogLine },
     /// Sent once when the entire workflow has completed.
     WorkflowComplete(Result<(), String>),
     /// Sent when a step fails and the workflow is paused, awaiting user intervention.

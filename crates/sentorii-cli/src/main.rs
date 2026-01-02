@@ -4,11 +4,14 @@ use anyhow::Result;
 use clap::Parser;
 use sentorii_cli::cli::Cli;
 use sentorii_cli::tui::Tui;
-use sentorii_cli::{App, controller, ui, workflow_dispatcher, mock_engine};
+use sentorii_cli::{App, controller, ui, workflow_dispatcher};
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::time::Duration;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "mock-engine")]
+use sentorii_cli::mock_engine;
 
 #[tokio::main]
 async fn main() -> Result<()> {

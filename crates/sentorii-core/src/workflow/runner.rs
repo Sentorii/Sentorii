@@ -58,7 +58,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             .map_err(|_| EventChannelClosed)?;
 
         let result = match step {
-            Step::Command(cmd_step) => self.execute_command_step(cmd_step).await,
+            Step::Command(cmd_step) => self.execute_command_step(cmd_step, index).await,
             Step::RequestStringInput(request_template) => {
                 self.execute_string_input_step(request_template).await
             }
@@ -86,9 +86,9 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         }
     }
 
-    async fn execute_command_step(&self, command_step: &CommandStep) -> Result<(), CoreError> {
+    async fn execute_command_step(&self, command_step: &CommandStep, step_index: usize) -> Result<(), CoreError> {
         let executable = command_step.to_executable(&self.state.context)?;
-        self.runner.execute(executable).await?;
+        self.runner.execute(executable, step_index).await?;
         Ok(())
     }
 
