@@ -55,7 +55,7 @@ pub fn update_state(app: &mut App, event: Event) {
         Event::WorkflowComplete(info) => match info {
             Ok(()) => {
                 state.status = UiStepStatus::Success;
-                app.should_quit = true;
+                app.should_quit = false;
             },
             Err(e) => {
                 state.status = UiStepStatus::Failure(e);
