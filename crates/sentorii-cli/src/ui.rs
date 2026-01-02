@@ -80,8 +80,8 @@ fn render_step_detail(frame: &mut Frame, app_state: &mut TuiAppState, area: Rect
     if let Some(step) = step {
         let logs_text: Vec<Line> = step.logs.iter().map(|log| {
             match log {
-                LogLine::Stdout(line) => Line::from(line.as_str()).style(Style::default().fg(Color::Green)),
-                LogLine::Stderr(line) => Line::from(line.as_str()).style(Style::default().fg(Color::Red))
+                LogLine::Stdout(line) => Line::from(line.as_str()).style(Style::default().fg(Color::DarkGray)),
+                LogLine::Stderr(line) => Line::from(line.as_str()).style(Style::default().fg(Color::Rgb(139, 0, 0)))
             }
         }).collect();
         let log_paragraph = Paragraph::new(logs_text)
