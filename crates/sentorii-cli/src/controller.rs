@@ -1,7 +1,7 @@
 use crate::app::{ActiveModal, FocusTarget, TuiAppState, ViewMode};
 use anyhow::Result;
 use crossterm::event;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use sentorii_contracts::ui::ModalState;
 use std::time::Duration;
 use tokio::sync::oneshot;
@@ -28,6 +28,10 @@ pub fn poll_for_action(tick_rate: Duration, state: &mut TuiAppState) -> Result<O
 }
 
 fn handle_key_event(key: KeyEvent, state: &mut TuiAppState) -> Action {
+    if key.kind != KeyEventKind::Press {
+        return Action::NoOp;
+    }
+
     if let KeyEvent {
         code: KeyCode::Char('c'),
         modifiers: KeyModifiers::CONTROL,
