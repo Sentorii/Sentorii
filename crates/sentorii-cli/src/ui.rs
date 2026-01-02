@@ -1,4 +1,4 @@
-use crate::app::{ActiveModal, TuiAppState};
+use crate::app::{ActiveModal, FocusTarget, TuiAppState, ViewMode};
 use ratatui::prelude::*;
 use ratatui::style::Styled;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
@@ -16,7 +16,10 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
 
     match &app_state.canonical_state.modal {
         ModalState::None => {
-            render_step_list(frame, app_state, app_chunk);
+            match app_state.view_mode {
+                ViewMode::Normal => render_step_list(frame, app_state, app_chunk),
+                ViewMode::StepDetail => render_step_detail(frame, app_state, app_chunk),
+            }
         }
         ModalState::TextInput { prompt, .. } => {
             if let Some(ActiveModal::TextInput { widget, .. }) = &app_state.active_modal {
@@ -32,18 +35,10 @@ pub fn render(frame: &mut Frame, app_state: &mut TuiAppState) {
         _ => {}
     }
 
-    let logger_widget = TuiLoggerWidget::default()
-        .block(Block::default().title(" Logs ").borders(Borders::ALL))
-        .style_error(Style::default().fg(Color::Red))
-        .style_warn(Style::default().fg(Color::Yellow))
-        .style_info(Style::default().fg(Color::Cyan))
-        .style_debug(Style::default().fg(Color::Green))
-        .style_trace(Style::default().fg(Color::Magenta));
-
-    frame.render_widget(logger_widget, log_chunk)
+    render_logs(frame, app_state, log_chunk);
 }
 
-fn render_step_list(frame: &mut Frame, app_state: &TuiAppState, area: Rect) {
+fn render_step_list(frame: &mut Frame, app_state: &mut TuiAppState, area: Rect) {
     let steps_list: Vec<ListItem> = app_state
         .canonical_state
         .steps
@@ -60,13 +55,38 @@ fn render_step_list(frame: &mut Frame, app_state: &TuiAppState, area: Rect) {
         })
         .collect();
 
+    let border_style = if app_state.focus == FocusTarget::Steps {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default()
+    };
+
     let list_widget = List::new(steps_list).block(
         Block::default()
             .title(format!(" {} ", &app_state.canonical_state.workflow_title))
-            .borders(Borders::ALL),
-    );
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    )
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD).bg(Color::DarkGray))
+        .highlight_symbol("> ");
 
-    frame.render_widget(list_widget, area);
+    frame.render_stateful_widget(list_widget, area, &mut app_state.list_state);
+}
+
+fn render_step_detail(frame: &mut Frame, app_state: &mut TuiAppState, area: Rect) {
+    let step = app_state.canonical_state.steps.iter().find(|step| Some(step.id) == app_state.selected_step_id);
+
+    if let Some(step) = step {
+        let logs_text: Vec<Line> = step.logs.iter().map(|log| Line::from(log.as_str())).collect();
+        let log_paragraph = Paragraph::new(logs_text)
+            .block(
+                Block::default()
+                    .title(format!(" Logs for Step: {} ", step.description))
+                    .borders(Borders::ALL),
+            )
+            .wrap(Wrap { trim: true });
+        frame.render_widget(log_paragraph, area);
+    }
 }
 
 fn render_text_input_modal(frame: &mut Frame, prompt: &str, input: &tui_input::Input, area: Rect) {
@@ -119,6 +139,25 @@ fn render_failure_modal(frame: &mut Frame, title: &str, error_message: &str, are
         .style(Style::default().fg(Color::LightRed));
 
     frame.render_widget(error_paragraph, modal_area);
+}
+
+fn render_logs(frame: &mut Frame, app_state: &mut TuiAppState, area: Rect) {
+    let border_style = if app_state.focus == FocusTarget::Logs {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default()
+    };
+
+    let logger_widget = TuiLoggerWidget::default()
+        .block(Block::default().title(" Logs ").borders(Borders::ALL).border_style(border_style))
+        .style_error(Style::default().fg(Color::Red))
+        .style_warn(Style::default().fg(Color::Yellow))
+        .style_info(Style::default().fg(Color::Cyan))
+        .style_debug(Style::default().fg(Color::Green))
+        .style_trace(Style::default().fg(Color::Magenta))
+        .output_separator(' ');
+
+    frame.render_widget(logger_widget, area)
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

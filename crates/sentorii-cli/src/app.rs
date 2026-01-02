@@ -1,12 +1,25 @@
 use crate::controller::Action;
 use crate::state;
 use anyhow::Result;
+use ratatui::widgets::ListState;
 use sentorii_contracts::event::{Event, StringInputRequest};
 use sentorii_contracts::ui::{ModalState, UiState};
 use sentorii_contracts::workflow_request::WorkflowRequest;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tui_input::Input;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ViewMode {
+    Normal,
+    StepDetail,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum FocusTarget {
+    Steps,
+    Logs,
+}
 
 pub enum ActiveModal {
     TextInput {
@@ -18,6 +31,10 @@ pub enum ActiveModal {
 pub struct TuiAppState {
     pub canonical_state: UiState,
     pub active_modal: Option<ActiveModal>,
+    pub view_mode: ViewMode,
+    pub focus: FocusTarget,
+    pub list_state: ListState,
+    pub selected_step_id: Option<usize>,
 }
 
 pub struct App {
@@ -33,6 +50,10 @@ impl App {
             tui_state: TuiAppState {
                 canonical_state: UiState::default(),
                 active_modal: None,
+                view_mode: ViewMode::Normal,
+                focus: FocusTarget::Steps,
+                list_state: ListState::default(),
+                selected_step_id: None,
             },
             should_quit: false,
             request_tx,
