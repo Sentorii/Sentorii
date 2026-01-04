@@ -1,0 +1,15 @@
+[package]
+name = "sentorii-pdk"
+version = "0.1.0"
+edition = "2024"
+description = "A Plugin Development Kit (PDK) for creating plugins for the Sentorii ecosystem in Rust."
+license = "MIT"
+
+[dependencies]
+sentorii-api = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

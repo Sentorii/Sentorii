@@ -26,6 +26,8 @@ pub enum Response {
     Success(SuccessResponse),
     /// A response indicating a failure, with structured error information.
     Error(ErrorResponse),
+    /// An intermediate response relaying output from a child proces or internal operation.
+    ProcessOutput(ProcessOutput),
 }
 
 /// Contains the payload for a successful command execution.
@@ -39,6 +41,24 @@ pub enum SuccessResponse {
     /// A generic acknowledgement for operations that don't return data, like `set-version`.
     Ack,
 }
+
+/// The payload for a `process-output` streaming message.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ProcessOutput {
+    /// The stream this output originated from.
+    pub stream: Stream,
+    /// The line of content.
+    pub content: String,
+}
+
+/// Identifies the stream source for a `ProcessOutput` message.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Stream {
+    Stdout,
+    Stderr,
+}
+
 
 // =========================================================================
 // Command-Specific Payloads and Responses
