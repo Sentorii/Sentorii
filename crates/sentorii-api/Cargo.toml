@@ -1,0 +1,12 @@
+[package]
+name = "sentorii-api"
+version = "0.1.0"
+edition = "2024"
+description = "Defines the stable JSON-based API contract for the Sentorii plugin ecosystem."
+license = "MIT"
+
+[dependencies]
+serde = { workspace = true }
+
+[lints]
+workspace = true

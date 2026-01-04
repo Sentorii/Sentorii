@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["crates/sentorii-api",
     "crates/sentorii-cli",
     "crates/sentorii-config",
     "crates/sentorii-contracts",
