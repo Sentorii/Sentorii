@@ -10,6 +10,7 @@ use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
+#[cfg(feature = "mock-engine")]
 use sentorii_cli::mock_engine;
 
 #[tokio::main]

@@ -19,7 +19,7 @@ pub mod state;
 pub mod tui;
 pub mod ui;
 pub mod workflow_dispatcher;
-
+#[cfg(feature = "mock-engine")]
 pub mod mock_engine;
 
 pub use app::App;
