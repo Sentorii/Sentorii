@@ -8,6 +8,7 @@ use crate::git::executor::CommandExecutor;
 use crate::git::utils::resolve_git_root;
 use crate::workflow::context::ContextProvider;
 use crate::workflow::definition::feature::start_feature;
+use log::{error, info, warn};
 use sentorii_config::load_config;
 use sentorii_contracts::event::Event;
 use sentorii_contracts::workflow_request::WorkflowRequest;
@@ -41,16 +42,19 @@ pub fn start_engine(
     let engine_state = Arc::new(Mutex::new(EngineState::Idle));
 
     tokio::spawn(async move {
-        log::info!("Sentorii Core Engine started");
+        info!("Sentorii Core Engine started");
 
         while let Some(request) = request_rx.recv().await {
+            info!("Sentorii Core Engine received request: {request:?}");
             if let Err(poisoned_error) = handle_request(request, &engine_state, event_tx.clone()) {
-                log::error!(
+                error!(
                     "FATAL: Engine state mutex is poisoned, shutting down dispatcher. Error: {poisoned_error}"
                 );
                 break;
             }
         }
+
+        info!("Sentorii Core Core Engine shut down");
     })
 }
 
@@ -72,7 +76,7 @@ fn handle_request(
             spawn_workflow_execution_task(request, workflow_id, engine_state_clone, event_tx);
         }
         EngineState::Busy { workflow_id } => {
-            log::warn!("Rejected request; engine is busy with workflow {workflow_id}");
+            warn!("Rejected request; engine is busy with workflow {workflow_id}");
             let reason = format!("Engine is busy with an existing workflow: {workflow_id}");
 
             tokio::spawn(async move {
@@ -89,7 +93,7 @@ fn spawn_workflow_execution_task(
     engine_state: Arc<Mutex<EngineState>>,
     event_tx: mpsc::Sender<Event>,
 ) {
-    log::info!("Engine is now busy with new workflow {workflow_id}");
+    info!("Engine is now busy with new workflow {workflow_id}");
 
     tokio::spawn(async move {
         let _result = dispatch_workflow(request, event_tx, workflow_id).await;
@@ -102,13 +106,11 @@ fn spawn_workflow_execution_task(
                     && active_id == workflow_id
                 {
                     *state = EngineState::Idle;
-                    log::info!("Workflow {workflow_id} finished. Engine is now idle");
+                    info!("Workflow {workflow_id} finished. Engine is now idle");
                 }
             }
             Err(e) => {
-                log::error!(
-                    "FATAL: Mutex poisoned while resetting engine state to idle. Error: {e}"
-                );
+                error!("FATAL: Mutex poisoned while resetting engine state to idle. Error: {e}");
             }
         }
     });

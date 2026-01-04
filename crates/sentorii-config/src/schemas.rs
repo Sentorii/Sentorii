@@ -23,6 +23,7 @@ pub struct Plugins {
 pub struct Branching {
     pub main: String,
     pub develop: String,
+    pub remote: String,
     pub prefixes: Prefixes,
 }
 
@@ -31,6 +32,7 @@ impl Default for Branching {
         Self {
             main: "main".to_string(),
             develop: "develop".to_string(),
+            remote: "origin".to_string(),
             prefixes: Prefixes::default(),
         }
     }

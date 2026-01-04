@@ -2,8 +2,27 @@
 name = "sentorii-cli"
 version = "0.1.0"
 edition = "2024"
+description = "CLI for interacting with Sentorii engine."
+license = "MIT"
+
+[features]
+mock-engine = []
 
 [dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+tui-input = { workspace = true }
+
+sentorii-core = { workspace = true }
+sentorii-contracts = { workspace = true }
+log = { workspace = true }
+tui-logger = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
 
 [lints]
 workspace = true

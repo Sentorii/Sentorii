@@ -17,6 +17,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct WorkflowBuilder<R: CommandRunner> {
     id: Uuid,
+    name: String,
     event_tx: mpsc::Sender<Event>,
     runner: R,
     git_root: PathBuf,
@@ -27,6 +28,7 @@ pub struct WorkflowBuilder<R: CommandRunner> {
 impl<R: CommandRunner> WorkflowBuilder<R> {
     pub const fn new(
         workflow_id: Uuid,
+        name: String,
         event_tx: mpsc::Sender<Event>,
         runner: R,
         git_root: PathBuf,
@@ -34,6 +36,7 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
     ) -> Self {
         Self {
             id: workflow_id,
+            name,
             event_tx,
             runner,
             git_root,
@@ -48,11 +51,16 @@ impl<R: CommandRunner> WorkflowBuilder<R> {
     }
 
     pub async fn build(self) -> Result<Workflow<R>, CoreError> {
-        let static_steps = self.steps.iter().map(Step::static_info).collect();
+        let ui_steps = self
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(v, i)| Step::ui_step(i, v))
+            .collect();
         let metadata = WorkflowMetadata::None;
 
         self.event_tx
-            .send(Event::WorkflowPlanReady(static_steps, metadata))
+            .send(Event::WorkflowPlanReady(self.name, ui_steps, metadata))
             .await
             .map_err(|_| EventChannelClosed)?;
 
@@ -93,7 +101,14 @@ mod tests {
         let runner = MockCommandRunner::default();
         let git_root = PathBuf::from("git_root");
         let context = ContextBuilder::new().build();
-        let builder = WorkflowBuilder::new(workflow_id, tx, runner, git_root, context);
+        let builder = WorkflowBuilder::new(
+            workflow_id,
+            "test".to_string(),
+            tx,
+            runner,
+            git_root,
+            context,
+        );
 
         let step1 = git_pull("origin", "new-branch");
 
@@ -114,11 +129,18 @@ mod tests {
 
         let steps = vec![step_git_pull.clone()];
 
-        let workflow = WorkflowBuilder::new(workflow_id, event_tx, runner, git_root, context)
-            .step(step_git_pull.clone())
-            .build()
-            .await
-            .unwrap();
+        let workflow = WorkflowBuilder::new(
+            workflow_id,
+            "test".to_string(),
+            event_tx,
+            runner,
+            git_root,
+            context,
+        )
+        .step(step_git_pull.clone())
+        .build()
+        .await
+        .unwrap();
 
         let event1 = event_rx.recv().await.unwrap();
         assert!(matches!(event1, Event::WorkflowPlanReady(..)));

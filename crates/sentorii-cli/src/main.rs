@@ -1,13 +1,53 @@
-fn main() {
-    println!("Hello, world!");
-}
+#![forbid(unsafe_code)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use anyhow::Result;
+use clap::Parser;
+use sentorii_cli::cli::Cli;
+use sentorii_cli::tui::Tui;
+use sentorii_cli::{App, controller, ui, workflow_dispatcher};
+use sentorii_contracts::event::Event;
+use sentorii_contracts::workflow_request::WorkflowRequest;
+use std::time::Duration;
+use tokio::sync::mpsc;
 
-    #[test]
-    fn it_works() {
-        main();
+#[cfg(feature = "mock-engine")]
+use sentorii_cli::mock_engine;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tui_logger::init_logger(log::LevelFilter::Trace)?;
+    let cli = Cli::parse();
+
+    let (request_tx, request_rx) = mpsc::channel::<WorkflowRequest>(10);
+    let (event_tx, mut event_rx) = mpsc::channel::<Event>(1000);
+
+    #[cfg(not(feature = "mock-engine"))]
+    {
+        tokio::spawn(sentorii_core::start_engine(request_rx, event_tx));
     }
+    #[cfg(feature = "mock-engine")]
+    {
+        tokio::spawn(mock_engine::start_mock_engine(request_rx, event_tx));
+    }
+
+    let mut tui = Tui::new()?;
+    tui.enter()?;
+
+    let mut app = App::new(request_tx.clone());
+    workflow_dispatcher::dispatch(cli, &request_tx).await?;
+
+    let tick_rate = Duration::from_millis(16);
+    while !app.should_quit() {
+        tui.draw(|frame| ui::render(frame, &mut app.tui_state))?;
+
+        if let Some(action) = controller::poll_for_action(tick_rate, &mut app.tui_state)? {
+            app.handle_action(action)?;
+        }
+
+        if let Ok(core_event) = event_rx.try_recv() {
+            app.handle_core_event(core_event);
+        }
+    }
+
+    Ok(())
 }

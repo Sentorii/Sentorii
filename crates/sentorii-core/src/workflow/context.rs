@@ -10,6 +10,7 @@ impl ContextProvider for Config {
         ContextBuilder::new()
             .with_main(&self.branching.main)
             .with_develop(&self.branching.develop)
+            .with_remote(&self.branching.remote)
             .build()
     }
 }

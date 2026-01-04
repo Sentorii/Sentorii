@@ -1,13 +1,12 @@
+use crate::error::CoreError;
 use crate::error::InvalidStateError::{EventChannelClosed, InputChannelClosed};
-use crate::error::{CoreError, InvalidStateError};
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
-use log::{Level, log};
+use log::info;
 use sentorii_contracts::command::Command;
-use sentorii_contracts::event::{
-    Event, FailureInfo, RuntimeStepInfo, StepStatus, StringInputRequest,
-};
+use sentorii_contracts::event::{Event, FailureInfo, RuntimeStepInfo, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
 use sentorii_contracts::step::{CommandStep, RequestStringInputTemplate, Step};
+use sentorii_contracts::ui::UiStepStatus;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -24,7 +23,6 @@ pub struct Workflow<R: CommandRunner> {
 
 impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     pub async fn run(mut self) {
-        log!(Level::Info, "Starting workflow {:?}", self.id);
         let result = self.run_internal().await;
 
         let final_event = match result {
@@ -35,37 +33,33 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     }
 
     async fn run_internal(&mut self) -> Result<(), CoreError> {
+        info!("Running workflow: {}", self.id);
         let steps = self.state.steps.clone();
         for (index, step) in steps.iter().enumerate() {
             self.state.current_step = index;
 
             save_state(&self.git_root, &self.state).await?;
 
-            let index_u32 = u32::try_from(index).map_err(|_| {
-                CoreError::InvalidState(InvalidStateError::NotRunnable(format!(
-                    "Index conversion failed for: {index}"
-                )))
-            });
-
-            self.execute_step(index_u32?, step).await?;
+            self.execute_step(index, step).await?;
         }
 
         delete_state(&self.git_root).await?;
         Ok(())
     }
 
-    async fn execute_step(&mut self, index: u32, step: &Step) -> Result<(), CoreError> {
+    async fn execute_step(&mut self, index: usize, step: &Step) -> Result<(), CoreError> {
         let resolved_description = step.resolved_description(&self.state.context);
         self.event_tx
             .send(Event::StepStarted(RuntimeStepInfo {
                 index,
-                description: resolved_description,
+                description: resolved_description.clone(),
+                status: UiStepStatus::Running,
             }))
             .await
             .map_err(|_| EventChannelClosed)?;
 
         let result = match step {
-            Step::Command(cmd_step) => self.execute_command_step(cmd_step).await,
+            Step::Command(cmd_step) => self.execute_command_step(cmd_step, index).await,
             Step::RequestStringInput(request_template) => {
                 self.execute_string_input_step(request_template).await
             }
@@ -77,7 +71,11 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         match result {
             Ok(()) => {
                 self.event_tx
-                    .send(Event::StepFinished(index, StepStatus::Success))
+                    .send(Event::StepFinished(RuntimeStepInfo {
+                        index,
+                        description: resolved_description,
+                        status: UiStepStatus::Success,
+                    }))
                     .await
                     .map_err(|_| EventChannelClosed)?;
                 Ok(())
@@ -89,9 +87,13 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         }
     }
 
-    async fn execute_command_step(&self, command_step: &CommandStep) -> Result<(), CoreError> {
+    async fn execute_command_step(
+        &self,
+        command_step: &CommandStep,
+        step_index: usize,
+    ) -> Result<(), CoreError> {
         let executable = command_step.to_executable(&self.state.context)?;
-        self.runner.execute(executable).await?;
+        self.runner.execute(executable, step_index).await?;
         Ok(())
     }
 
@@ -117,7 +119,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
             "tag" => {
                 self.state.context.set_tag(user_input);
             }
-            "feauture_name" => {
+            "feature_name" => {
                 self.state.context.set_feature_branch(user_input);
             }
             _ => {}
@@ -125,7 +127,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         Ok(())
     }
 
-    async fn handle_failure(&mut self, error: &CoreError, index: u32, step: &Step) {
+    async fn handle_failure(&mut self, error: &CoreError, index: usize, step: &Step) {
         self.state.status = "PausedOnFailure".to_string();
         let _ = save_state(&self.git_root, &self.state).await;
 
@@ -144,10 +146,11 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
 
         let _ = self
             .event_tx
-            .send(Event::StepFinished(
+            .send(Event::StepFinished(RuntimeStepInfo {
                 index,
-                StepStatus::Failure(error.to_string()),
-            ))
+                description: step.resolved_description(&self.state.context),
+                status: UiStepStatus::Failure(error.to_string()),
+            }))
             .await;
     }
 }
