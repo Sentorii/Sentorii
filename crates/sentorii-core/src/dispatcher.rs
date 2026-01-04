@@ -45,7 +45,7 @@ pub fn start_engine(
         info!("Sentorii Core Engine started");
 
         while let Some(request) = request_rx.recv().await {
-            info!("Sentorii Core Engine received request: {:?}", request);
+            info!("Sentorii Core Engine received request: {request:?}");
             if let Err(poisoned_error) = handle_request(request, &engine_state, event_tx.clone()) {
                 error!(
                     "FATAL: Engine state mutex is poisoned, shutting down dispatcher. Error: {poisoned_error}"

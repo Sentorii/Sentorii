@@ -60,7 +60,10 @@ impl App {
         }
     }
 
-    pub async fn handle_action(&mut self, action: Action) -> Result<()> {
+    /// # Errors
+    ///
+    /// Fails if oneshot channel has closed.
+    pub fn handle_action(&mut self, action: Action) -> Result<()> {
         match action {
             Action::SubmitTextInput { text, responder } => {
                 let _ = responder.send(text);

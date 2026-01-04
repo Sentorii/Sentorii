@@ -1,6 +1,7 @@
 use crate::error::CoreError;
 use crate::error::InvalidStateError::{EventChannelClosed, InputChannelClosed};
 use crate::workflow::state::{PersistentWorkflowState, delete_state, save_state};
+use log::info;
 use sentorii_contracts::command::Command;
 use sentorii_contracts::event::{Event, FailureInfo, RuntimeStepInfo, StringInputRequest};
 use sentorii_contracts::runner::CommandRunner;
@@ -32,6 +33,7 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
     }
 
     async fn run_internal(&mut self) -> Result<(), CoreError> {
+        info!("Running workflow: {}", self.id);
         let steps = self.state.steps.clone();
         for (index, step) in steps.iter().enumerate() {
             self.state.current_step = index;
@@ -85,7 +87,11 @@ impl<R: CommandRunner + Send + Sync + 'static> Workflow<R> {
         }
     }
 
-    async fn execute_command_step(&self, command_step: &CommandStep, step_index: usize) -> Result<(), CoreError> {
+    async fn execute_command_step(
+        &self,
+        command_step: &CommandStep,
+        step_index: usize,
+    ) -> Result<(), CoreError> {
         let executable = command_step.to_executable(&self.state.context)?;
         self.runner.execute(executable, step_index).await?;
         Ok(())

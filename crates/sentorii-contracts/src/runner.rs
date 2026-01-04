@@ -13,7 +13,11 @@ pub enum ExecutionStatus {
 #[async_trait]
 pub trait CommandRunner {
     /// Executes the given command.
-    async fn execute(&self, command: ExecutableCommand, step_id: usize) -> Result<(), CommandExecutionError>;
+    async fn execute(
+        &self,
+        command: ExecutableCommand,
+        step_id: usize,
+    ) -> Result<(), CommandExecutionError>;
 }
 
 // --- Mock Implementation for Testing ---
@@ -36,7 +40,11 @@ pub struct MockCommandRunner {
 #[cfg(feature = "test_utils")]
 #[async_trait]
 impl CommandRunner for MockCommandRunner {
-    async fn execute(&self, command: ExecutableCommand, _step_id: usize) -> Result<(), CommandExecutionError> {
+    async fn execute(
+        &self,
+        command: ExecutableCommand,
+        _step_id: usize,
+    ) -> Result<(), CommandExecutionError> {
         self.executed_commands
             .lock()
             .map_err(|_| CommandExecutionError::LockPoisoned)?
@@ -101,7 +109,7 @@ mod tests {
                 CommandStep::GitStatusCheck(GitStatusCheckCommand)
                     .to_executable(&context)
                     .unwrap(),
-                1
+                1,
             )
             .await;
         assert!(matches!(status_ok, Ok(())));
@@ -113,7 +121,8 @@ mod tests {
                 })
                 .to_executable(&context)
                 .unwrap(),
-            2)
+                2,
+            )
             .await;
         assert!(matches!(
             status_fail,
@@ -146,7 +155,7 @@ mod tests {
                 CommandStep::GitStatusCheck(GitStatusCheckCommand)
                     .to_executable(&context)
                     .unwrap(),
-                1
+                1,
             )
             .await;
 

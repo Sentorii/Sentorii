@@ -53,9 +53,9 @@ impl CommandExecutor {
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if event_tx
-                    .send(Event::LogOutput{
+                    .send(Event::LogOutput {
                         step_id,
-                        line: log_line(line)
+                        line: log_line(line),
                     })
                     .await
                     .is_err()
@@ -69,7 +69,11 @@ impl CommandExecutor {
 
 #[async_trait]
 impl CommandRunner for CommandExecutor {
-    async fn execute(&self, command: ExecutableCommand, step_id: usize) -> Result<(), CommandExecutionError> {
+    async fn execute(
+        &self,
+        command: ExecutableCommand,
+        step_id: usize,
+    ) -> Result<(), CommandExecutionError> {
         let full_command_str = format!("{} {}", command.program, command.args.join(" "));
 
         let mut child = Self::spawn_child(&command, &full_command_str)?;

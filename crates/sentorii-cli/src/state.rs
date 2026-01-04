@@ -25,7 +25,7 @@ pub fn update_state(app: &mut App, event: Event) {
             if let Some(step) = state.steps.iter_mut().find(|s| s.id == step_id) {
                 step.logs.push(line);
             }
-        },
+        }
         Event::StringInputRequired(prompt) => {
             state.modal = ModalState::TextInput {
                 prompt: prompt.prompt,
@@ -52,7 +52,7 @@ pub fn update_state(app: &mut App, event: Event) {
             Ok(()) => {
                 state.status = UiStepStatus::Success;
                 app.should_quit = false;
-            },
+            }
             Err(e) => {
                 state.status = UiStepStatus::Failure(e);
                 app.should_quit = false;

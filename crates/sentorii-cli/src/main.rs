@@ -10,7 +10,6 @@ use sentorii_contracts::workflow_request::WorkflowRequest;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-#[cfg(feature = "mock-engine")]
 use sentorii_cli::mock_engine;
 
 #[tokio::main]
@@ -41,7 +40,7 @@ async fn main() -> Result<()> {
         tui.draw(|frame| ui::render(frame, &mut app.tui_state))?;
 
         if let Some(action) = controller::poll_for_action(tick_rate, &mut app.tui_state)? {
-            app.handle_action(action).await?;
+            app.handle_action(action)?;
         }
 
         if let Ok(core_event) = event_rx.try_recv() {

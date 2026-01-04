@@ -12,12 +12,18 @@ pub struct Tui {
 }
 
 impl Tui {
+    /// # Errors
+    ///
+    /// Crossterm errors
     pub fn new() -> Result<Self> {
         let backend = CrosstermBackend::new(io::stderr());
         let terminal = Terminal::new(backend)?;
         Ok(Self { terminal })
     }
 
+    /// # Errors
+    ///
+    /// Crossterm errors
     pub fn enter(&mut self) -> Result<()> {
         terminal::enable_raw_mode()?;
         crossterm::execute!(
@@ -28,6 +34,9 @@ impl Tui {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns a `CompletedFrame` if successful, otherwise a `std::io::Error`.
     pub fn draw(&mut self, f: impl FnOnce(&mut Frame)) -> Result<()> {
         self.terminal.draw(f)?;
         Ok(())
