@@ -1,0 +1,21 @@
+[package]
+name = "sentorii-plugin-cargo"
+version = "0.1.0"
+edition = "2024"
+description = "A Sentorii plugin for managing the version of Rust Cargo.toml projects."
+license = "MIT"
+
+[dependencies]
+sentorii-pdk = { workspace = true }
+anyhow = { workspace = true }
+
+cargo_metadata = "0.23.1"
+toml_edit = "0.23.9"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = "3.1.3"
+
+[lints]
+workspace = true

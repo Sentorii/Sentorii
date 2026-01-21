@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod logging;
 // =========================================================================
 // Top-Level Communication Enums (for line-delimited JSON protocol)
 // =========================================================================
@@ -20,26 +21,22 @@ pub enum Request {
 
 /// Represents a single response sent from a plugin back to the Sentorii host.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(tag = "status", content = "data", rename_all = "kebab-case")]
+#[serde(tag = "kind")]
 pub enum Response {
-    /// A successful response containing the requested data.
-    Success(SuccessResponse),
-    /// A response indicating a failure, with structured error information.
-    Error(ErrorResponse),
-    /// An intermediate response relaying output from a child proces or internal operation.
-    ProcessOutput(ProcessOutput),
-}
-
-/// Contains the payload for a successful command execution.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum SuccessResponse {
-    /// The response to a `get-info` request.
+    #[serde(rename = "info")]
     Info(PluginInfo),
-    /// The response to a `get-version` request.
+
+    #[serde(rename = "version")]
     Version(VersionResponse),
-    /// A generic acknowledgement for operations that don't return data, like `set-version`.
+
+    #[serde(rename = "ack")]
     Ack,
+
+    #[serde(rename = "error")]
+    Error(ErrorResponse),
+
+    #[serde(rename = "process_output")]
+    ProcessOutput(ProcessOutput),
 }
 
 /// The payload for a `process-output` streaming message.
@@ -58,7 +55,6 @@ pub enum Stream {
     Stdout,
     Stderr,
 }
-
 
 // =========================================================================
 // Command-Specific Payloads and Responses
@@ -138,4 +134,5 @@ pub enum ErrorCode {
     UnsupportedCommand,
     /// A generic failure for plugin-specific logic.
     PluginLogicFailed,
+    InvalidInput,
 }

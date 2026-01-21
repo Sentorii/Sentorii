@@ -3,7 +3,7 @@ members = ["crates/sentorii-api",
     "crates/sentorii-cli",
     "crates/sentorii-config",
     "crates/sentorii-contracts",
-    "crates/sentorii-core", "crates/sentorii-pdk",
+    "crates/sentorii-core", "crates/sentorii-pdk", "crates/sentorii-plugin-cargo",
 ]
 resolver = "3"
 
@@ -31,6 +31,7 @@ sentorii-contracts = { version = "0.1.0", path = "crates/sentorii-contracts"}
 sentorii-config = { version = "0.1.0", path = "crates/sentorii-config"}
 sentorii-core = { version = "0.1.0", path = "crates/sentorii-core"}
 sentorii-api = { version = "0.1.0", path = "crates/sentorii-api"}
+sentorii-pdk = { version = "0.1.0", path = "crates/sentorii-pdk"}
 
 # Test utils
 assert_fs = "1.1.3"

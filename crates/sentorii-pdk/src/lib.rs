@@ -1,57 +1,46 @@
 #![forbid(unsafe_code)]
 
+use crate::error::PdkError;
+use sentorii_api::{ErrorCode, ErrorResponse, PluginInfo, Request, Response, SetVersionPayload, VersionResponse};
 use std::io;
 use std::io::{BufRead, StdoutLock, Write};
-use sentorii_api::{Request, Response, SuccessResponse};
-use crate::error::PdkError;
+use std::process::exit;
 
 pub mod error;
+pub mod exec;
 pub mod logging;
-pub mod emitter;
-mod exec;
 
-pub use emitter::Emitter;
+use crate::logging::error;
+pub use sentorii_api;
 
-/// Runs the main plugin event loop.
-///
-/// This is the primary entry point for a Sentorii plugin. It handles all
-/// communication with the Sentorii host application over stdin/stdout.
-///
-/// # Panics
-/// ... (panic docs unchanged)
-///
-/// # Arguments
-///
-/// * `handler`: A closure that takes a `sentorii_api::Request` and a mutable
-///   reference to an `Emitter` wrapping `stdout`. It is called for each incoming
-///   request and must return a `Result` to signal completion of the command.
-///
-/// # Example
-///
-/// ```no_run
-/// use sentorii_pdk::{run_plugin, Emitter};
-/// use sentorii_pdk::error::PdkError;
-/// use sentorii_api::{Request, PluginInfo, SuccessResponse};
-/// use std::io::StdoutLock;
-///
-/// // The handler's signature must match what `run_plugin` provides.
-/// fn my_plugin_logic(
-///     request: Request,
-///     emitter: &mut Emitter<StdoutLock>,
-/// ) -> Result<SuccessResponse, PdkError> {
-///     emitter.stdout("Received a request!").unwrap();
-///     // ... logic
-///     # Ok(SuccessResponse::Ack)
-/// }
-///
-/// fn main() {
-///     run_plugin(my_plugin_logic);
-/// }
-/// ```
-pub fn run_plugin<F>(mut handler: F)
-where
-    F: FnMut(Request, &mut Emitter<StdoutLock>) -> Result<SuccessResponse, PdkError>,
+pub trait Plugin {
+    fn get_info(&mut self) -> Result<PluginInfo, PdkError>;
+    fn get_version(&mut self) -> Result<VersionResponse, PdkError>;
+    fn set_version(&mut self, payload: SetVersionPayload) -> Result<(), PdkError>;
+}
+
+pub fn run_plugin_with_init<P, F, E>(mut loader: F)
+where 
+    P: Plugin,
+    F: FnMut() -> Result<P, E>,
+    E: Into<PdkError>,
 {
+    match loader() {
+        Ok(plugin) => {
+            run_plugin(plugin);
+        }
+        Err(loader_error) => {
+            let pdk_error = loader_error.into();
+            let error_response = Response::Error(pdk_error.into());
+
+            let mut stdout = io::stdout().lock();
+            send_final_response(&error_response, &mut stdout);
+            exit(1);
+        }
+    }
+}
+
+pub fn run_plugin<P: Plugin>(mut plugin: P) {
     let stdin = io::stdin().lock();
     let mut stdout = io::stdout().lock();
 
@@ -66,24 +55,50 @@ where
         }
 
         let final_response = {
-            let mut emitter = Emitter::new(&mut stdout);
             match serde_json::from_str::<Request>(&line) {
-                Ok(request) => {
-                    match handler(request, &mut emitter) {
-                        Ok(success_data) => Response::Success(success_data),
-                        Err(plugin_error) => Response::Error(plugin_error.into()),
-                    }
-                }
+                Ok(request) => dispatch_request(&mut plugin, request),
                 Err(e) => Response::Error(PdkError::Json(e).into()),
-            };
+            }
         };
 
-        if let Ok(response_json) = serde_json::to_string(&final_response) {
+        send_final_response(&final_response, &mut stdout);
+    }
+}
+
+fn dispatch_request<P: Plugin>(plugin: &mut P, request: Request) -> Response {
+    match request {
+        Request::GetInfo => match plugin.get_info() {
+            Ok(info) => Response::Info(info),
+            Err(e) => Response::Error(e.into()),
+        },
+        Request::GetVersion => match plugin.get_version() { 
+            Ok(version) => Response::Version(version),
+            Err(e) => Response::Error(e.into()),
+        },
+        Request::SetVersion(payload) => match plugin.set_version(payload) { 
+            Ok(()) => Response::Ack,
+            Err(e) => Response::Error(e.into()),
+        }
+    }
+}
+
+fn send_final_response(response: &Response, stdout: &mut StdoutLock) {
+    match serde_json::to_string(response) {
+        Ok(response_json) => {
             if writeln!(stdout, "{}", response_json).is_err() {
                 return;
-            };
+            }
         }
-
-        stdout.flush().expect("Failed to flush stdout");
+        Err(e) => {
+            error(&format!("Failed to serialize json: {}", e));
+            let fallback = Response::Error(ErrorResponse {
+                code: ErrorCode::PluginLogicFailed,
+                message: "Internal plugin error: failed to serialize response.".to_string(),
+            });
+            if let Ok(fallback_json) = serde_json::to_string(&fallback) {
+                let _ = writeln!(stdout, "{}", fallback_json);
+            }
+        }
     }
+    stdout.flush().expect("Failed to flush stdout");
 }
