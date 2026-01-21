@@ -33,6 +33,6 @@ impl From<PdkError> for ErrorResponse {
             PdkError::InvalidInput(msg) => (ErrorCode::InvalidInput, msg),
         };
 
-        ErrorResponse { code, message }
+        Self { code, message }
     }
 }

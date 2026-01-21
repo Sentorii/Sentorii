@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
-mod manifest;
 mod error;
-mod plugin;
 mod loader;
+mod manifest;
+mod plugin;
 
 use crate::loader::Loader;
 use sentorii_pdk::run_plugin_with_init;

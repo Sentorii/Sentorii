@@ -2,7 +2,6 @@
 //! All log messages are serialized as JSON and written to stderr.
 
 use serde::{Deserialize, Serialize};
-use std::io::{self, Write};
 
 /// The severity level of a log message.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +32,8 @@ pub enum LogSource {
 }
 
 impl LogSource {
-    pub fn is_pdk(&self) -> bool {
-        matches!(self, LogSource::Pdk)
+    #[must_use]
+    pub const fn is_pdk(&self) -> bool {
+        matches!(self, Self::Pdk)
     }
 }

@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
 use crate::error::PdkError;
-use sentorii_api::{ErrorCode, ErrorResponse, PluginInfo, Request, Response, SetVersionPayload, VersionResponse};
+use sentorii_api::{
+    ErrorCode, ErrorResponse, PluginInfo, Request, Response, SetVersionPayload, VersionResponse,
+};
 use std::io;
 use std::io::{BufRead, StdoutLock, Write};
 use std::process::exit;
@@ -20,7 +22,7 @@ pub trait Plugin {
 }
 
 pub fn run_plugin_with_init<P, F, E>(mut loader: F)
-where 
+where
     P: Plugin,
     F: FnMut() -> Result<P, E>,
     E: Into<PdkError>,
@@ -71,32 +73,32 @@ fn dispatch_request<P: Plugin>(plugin: &mut P, request: Request) -> Response {
             Ok(info) => Response::Info(info),
             Err(e) => Response::Error(e.into()),
         },
-        Request::GetVersion => match plugin.get_version() { 
+        Request::GetVersion => match plugin.get_version() {
             Ok(version) => Response::Version(version),
             Err(e) => Response::Error(e.into()),
         },
-        Request::SetVersion(payload) => match plugin.set_version(payload) { 
+        Request::SetVersion(payload) => match plugin.set_version(payload) {
             Ok(()) => Response::Ack,
             Err(e) => Response::Error(e.into()),
-        }
+        },
     }
 }
 
 fn send_final_response(response: &Response, stdout: &mut StdoutLock) {
     match serde_json::to_string(response) {
         Ok(response_json) => {
-            if writeln!(stdout, "{}", response_json).is_err() {
+            if writeln!(stdout, "{response_json}").is_err() {
                 return;
             }
         }
         Err(e) => {
-            error(&format!("Failed to serialize json: {}", e));
+            error(&format!("Failed to serialize json: {e}"));
             let fallback = Response::Error(ErrorResponse {
                 code: ErrorCode::PluginLogicFailed,
                 message: "Internal plugin error: failed to serialize response.".to_string(),
             });
             if let Ok(fallback_json) = serde_json::to_string(&fallback) {
-                let _ = writeln!(stdout, "{}", fallback_json);
+                let _ = writeln!(stdout, "{fallback_json}");
             }
         }
     }

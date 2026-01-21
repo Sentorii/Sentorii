@@ -52,7 +52,7 @@ fn spawn_reader_thread<R: Read + Send + 'static>(
             let reader = BufReader::new(stream);
             for line in reader.lines() {
                 if let Ok(line) = line {
-                    if tx.send((level.clone(), line)).is_err() {
+                    if tx.send((level, line)).is_err() {
                         break;
                     }
                 }

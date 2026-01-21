@@ -15,7 +15,7 @@ pub fn log(level: LogLevel, message: String, source: LogSource) {
     };
     if let Ok(json) = serde_json::to_string(&entry) {
         let mut stderr = io::stderr().lock();
-        let _ = writeln!(stderr, "{}", json);
+        let _ = writeln!(stderr, "{json}");
     }
 }
 

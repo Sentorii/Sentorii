@@ -1,7 +1,7 @@
-use std::fs::{create_dir, write};
-use std::path::Path;
 use assert_cmd::cargo_bin_cmd;
 use predicates::prelude::predicate;
+use std::fs::{create_dir, write};
+use std::path::Path;
 use tempfile::tempdir;
 
 fn setup_package(dir: &Path, toml_content: &str) -> Result<(), std::io::Error> {
@@ -16,7 +16,10 @@ fn setup_package(dir: &Path, toml_content: &str) -> Result<(), std::io::Error> {
 fn test_get_info() -> Result<(), Box<dyn std::error::Error>> {
     // ARRANGE: A valid package is needed for the loader to succeed.
     let dir = tempdir()?;
-    setup_package(dir.path(), "[package]\nname = \"info\"\nversion = \"0.1.0\"")?;
+    setup_package(
+        dir.path(),
+        "[package]\nname = \"info\"\nversion = \"0.1.0\"",
+    )?;
 
     // ACT
     let mut cmd = cargo_bin_cmd!("sentorii-plugin-cargo");
@@ -33,8 +36,8 @@ fn test_get_info() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 mod standalone_crate {
-    use std::fs::read_to_string;
     use super::*;
+    use std::fs::read_to_string;
 
     #[test]
     fn get_version() -> Result<(), Box<dyn std::error::Error>> {
@@ -104,9 +107,9 @@ edition = "2021"
 }
 
 mod workspace_project {
+    use super::*;
     use std::fs::read_to_string;
     use tempfile::TempDir;
-    use super::*;
 
     // Helper to set up a standard workspace for testing.
     fn setup_workspace(dir: &TempDir) -> Result<(), std::io::Error> {
@@ -123,20 +126,26 @@ version = "0.5.0"
         // member_a inherits its version
         let member_a_path = dir.path().join("member_a");
         create_dir(&member_a_path)?;
-        setup_package(&member_a_path, r#"
+        setup_package(
+            &member_a_path,
+            r#"
 [package]
 name = "member_a"
 version = { workspace = true }
-"#)?;
+"#,
+        )?;
 
         // member_b has its own version
         let member_b_path = dir.path().join("member_b");
         create_dir(&member_b_path)?;
-        setup_package(&member_b_path, r#"
+        setup_package(
+            &member_b_path,
+            r#"
 [package]
 name = "member_b"
 version = { workspace = true }
-"#)?;
+"#,
+        )?;
         Ok(())
     }
 
@@ -235,9 +244,13 @@ mod error_conditions {
     }
 
     #[test]
-    fn set_version_with_invalid_semver_fails_gracefully() -> Result<(), Box<dyn std::error::Error>> {
+    fn set_version_with_invalid_semver_fails_gracefully() -> Result<(), Box<dyn std::error::Error>>
+    {
         let dir = tempdir()?;
-        setup_package(dir.path(), "[package]\nname = \"semver\"\nversion = \"0.1.0\"")?;
+        setup_package(
+            dir.path(),
+            "[package]\nname = \"semver\"\nversion = \"0.1.0\"",
+        )?;
 
         let mut cmd = cargo_bin_cmd!("sentorii-plugin-cargo");
         cmd.current_dir(dir.path());
