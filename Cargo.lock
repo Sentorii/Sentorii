@@ -1592,12 +1592,13 @@ dependencies = [
 name = "sentorii-plugin-cargo"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "assert_cmd",
  "cargo_metadata",
  "predicates",
+ "semver",
  "sentorii-pdk",
  "tempfile",
+ "thiserror 2.0.17",
  "toml_edit",
 ]
 

@@ -4,6 +4,7 @@ use sentorii_pdk::error::PdkError;
 use sentorii_pdk::sentorii_api::{PluginInfo, SetVersionPayload, VersionResponse};
 use std::collections::HashSet;
 use toml_edit::value;
+use crate::validator::VersionValidator;
 
 pub struct CargoPlugin {
     pub root: ManifestFile,
@@ -55,6 +56,7 @@ impl Plugin for CargoPlugin {
 
     fn set_version(&mut self, payload: SetVersionPayload) -> Result<(), PdkError> {
         let version = payload.version;
+        VersionValidator::validate(&version).map_err(|e| PdkError::PluginLogic(e.to_string()))?;
         if self.root.get_package_version().is_some() {
             self.root.doc["package"]["version"] = value(&version);
         }

@@ -260,8 +260,8 @@ mod error_conditions {
 
         cmd.assert()
             .success() // The plugin itself doesn't crash, it handles the error.
-            .stdout(predicate::str::contains(r#""status":"error""#))
-            .stdout(predicate::str::contains(r#""code":"INVALID_INPUT""#));
+            .stdout(predicate::str::contains(r#""kind":"error""#))
+            .stdout(predicate::str::contains(r#""code":"PLUGIN_LOGIC_FAILED","message":"Invalid semver format: unexpected character 'n' while parsing major version number. Expected MAJOR.MINOR.PATCH.""#));
 
         Ok(())
     }
