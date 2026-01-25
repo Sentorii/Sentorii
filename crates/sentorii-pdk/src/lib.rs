@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::error::PdkError;
+use crate::logging::error;
 use sentorii_api::{
     ErrorCode, ErrorResponse, PluginInfo, Request, Response, SetVersionPayload, VersionResponse,
 };
@@ -11,13 +12,35 @@ use std::process::exit;
 pub mod error;
 pub mod exec;
 pub mod logging;
-
-use crate::logging::error;
 pub use sentorii_api;
 
+/// The central trait that all Sentorii plugins must implement.
+///
+/// This trait defines the core logic required by the Sentorii host. By implementing
+/// these three methods, your plugin provides all the necessary functionality for
+/// discovery, version reading, and version writing.
 pub trait Plugin {
+    /// Called when the host requests the plugin's static information.
+    ///
+    /// This method should return a `PluginInfo` struct describing the plugin's
+    /// capabilities, name, and the files it operates on.
+    ///
+    /// # Errors
+    /// Can crash on a range of `PdkError` specified by the plugin itself.
     fn get_info(&mut self) -> Result<PluginInfo, PdkError>;
+
+    /// Called when the host wants to read the version from the project in the
+    /// current working directory.
+    ///
+    /// # Errors
+    /// Can crash on a range of `PdkError` specified by the plugin itself.
     fn get_version(&mut self) -> Result<VersionResponse, PdkError>;
+
+    /// Called when the host wants to write a new version to the project in the
+    /// current working directory.
+    ///
+    /// # Errors
+    /// Can crash on a range of `PdkError` specified by the plugin itself.
     fn set_version(&mut self, payload: SetVersionPayload) -> Result<(), PdkError>;
 }
 
@@ -47,10 +70,7 @@ pub fn run_plugin<P: Plugin>(mut plugin: P) {
     let mut stdout = io::stdout().lock();
 
     for line in stdin.lines() {
-        let line = match line {
-            Ok(line) => line,
-            Err(_) => return,
-        };
+        let Ok(line) = line else { return };
 
         if line.trim().is_empty() {
             continue;
@@ -102,5 +122,5 @@ fn send_final_response(response: &Response, stdout: &mut StdoutLock) {
             }
         }
     }
-    stdout.flush().expect("Failed to flush stdout");
+    let _ = stdout.flush();
 }

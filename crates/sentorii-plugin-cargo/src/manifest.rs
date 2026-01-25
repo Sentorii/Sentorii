@@ -2,7 +2,7 @@ use crate::error::toml_error_to_pdk_error;
 use sentorii_pdk::error::PdkError;
 use std::fs::{read_to_string, write};
 use std::path::PathBuf;
-use toml_edit::DocumentMut;
+use toml_edit::{DocumentMut, Item};
 
 pub struct ManifestFile {
     pub path: PathBuf,
@@ -23,7 +23,7 @@ impl ManifestFile {
             .get("package")?
             .get("version")?
             .as_str()
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
     }
 
     pub fn is_inheriting_version(&self) -> bool {
@@ -31,7 +31,7 @@ impl ManifestFile {
             .get("package")
             .and_then(|p| p.get("version"))
             .and_then(|v| v.get("workspace"))
-            .and_then(|w| w.as_bool())
+            .and_then(Item::as_bool)
             == Some(true)
     }
 
@@ -41,7 +41,7 @@ impl ManifestFile {
             .get("package")?
             .get("version")?
             .as_str()
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
     }
 
     pub fn save(&self) -> Result<(), PdkError> {

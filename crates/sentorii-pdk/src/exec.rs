@@ -12,27 +12,40 @@ use std::thread::{self, JoinHandle};
 ///
 /// This function coordinates the spawning of the child process, the creation of
 /// reader threads, and the processing of the output event loop.
+///
+/// # Errors
+/// Can occur when process fails to spawn, timeouts occur, and when stdout or stderr is not closed as expected.
 pub fn stream_command(cmd: &mut Command) -> Result<std::process::ExitStatus, PdkError> {
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
-    let mut child = cmd.spawn().map_err(|e| PdkError::Io(e.into()))?;
+    let mut child = cmd.spawn()?;
     let (tx, rx) = mpsc::channel::<(LogLevel, String)>();
 
-    let stdout_handle = spawn_reader_thread(child.stdout.take(), tx.clone(), LogLevel::Stdout);
-    let stderr_handle = spawn_reader_thread(child.stderr.take(), tx, LogLevel::Stderr);
+    let stdout_handle = child
+        .stdout
+        .take()
+        .map(|s| spawn_reader_thread(s, tx.clone(), LogLevel::Stdout));
+    let stderr_handle = child
+        .stderr
+        .take()
+        .map(|s| spawn_reader_thread(s, tx, LogLevel::Stderr));
 
     for (level, message) in rx {
         log(level, message, LogSource::Process);
     }
 
-    let status = child.wait().map_err(|e| PdkError::Io(e.into()))?;
+    let status = child.wait()?;
 
     if let Some(handle) = stdout_handle {
-        handle.join().expect("Stdout reader thread panicked");
+        handle
+            .join()
+            .map_err(|e| PdkError::PluginLogic(format!("Failed to close stdout. {e:?}")))?;
     }
     if let Some(handle) = stderr_handle {
-        handle.join().expect("Stderr reader thread panicked");
+        handle
+            .join()
+            .map_err(|e| PdkError::PluginLogic(format!("Failed to close stderr. {e:?}")))?;
     }
 
     Ok(status)
@@ -43,20 +56,21 @@ pub fn stream_command(cmd: &mut Command) -> Result<std::process::ExitStatus, Pdk
 /// If the provided `stream` is `None`, it immediately sends a `Finished` message
 /// and returns `None`.
 fn spawn_reader_thread<R: Read + Send + 'static>(
-    stream: Option<R>,
+    stream: R,
     tx: mpsc::Sender<(LogLevel, String)>,
     level: LogLevel,
-) -> Option<JoinHandle<()>> {
-    stream.map(|stream| {
-        thread::spawn(move || {
-            let reader = BufReader::new(stream);
-            for line in reader.lines() {
-                if let Ok(line) = line {
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        let reader = BufReader::new(stream);
+        for line in reader.lines() {
+            match line {
+                Ok(line) => {
                     if tx.send((level, line)).is_err() {
                         break;
                     }
                 }
+                Err(_) => break,
             }
-        })
+        }
     })
 }

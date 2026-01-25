@@ -1,10 +1,12 @@
 use crate::manifest::ManifestFile;
+use crate::validator::VersionValidator;
 use sentorii_pdk::Plugin;
 use sentorii_pdk::error::PdkError;
-use sentorii_pdk::sentorii_api::{PluginInfo, SetVersionPayload, VersionResponse};
+use sentorii_pdk::sentorii_api::{
+    PluginInfo, PluginPermissions, SetVersionPayload, VersionResponse,
+};
 use std::collections::HashSet;
 use toml_edit::value;
-use crate::validator::VersionValidator;
 
 pub struct CargoPlugin {
     pub root: ManifestFile,
@@ -19,7 +21,7 @@ impl Plugin for CargoPlugin {
             binary_name: "sentorii-plugin-cargo".to_string(),
             primary_file: "Cargo.toml".to_string(),
             hint_files: vec!["Cargo.lock".to_string()],
-            permissions: Default::default(),
+            permissions: PluginPermissions::default(),
         })
     }
 
@@ -41,8 +43,7 @@ impl Plugin for CargoPlugin {
 
         if versions.len() > 1 {
             return Err(PdkError::PluginLogic(format!(
-                "Conflicting versions found in project: {:?}",
-                versions
+                "Conflicting versions found in project: {versions:?}"
             )));
         }
 
